@@ -1,0 +1,308 @@
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  ArrowPathIcon,
+  TrashIcon,
+  UserGroupIcon,
+  PowerIcon,
+  ShieldCheckIcon
+} from '@heroicons/react/24/outline';
+
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || ''}/api/admin`;
+
+function ManageProviders() {
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      throw new Error('Admin session expired. Please log in again.');
+    }
+
+    return { 'x-auth-token': token };
+  };
+
+  const fetchProviders = async () => {
+    setLoading(true);
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/providers`, {
+        headers: getAuthHeaders()
+      });
+
+      setProviders(response.data.providers || []);
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to load providers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (provider) => {
+    const actionKey = `toggle-${provider._id}`;
+    setActionLoading(actionKey);
+
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/provider/${provider._id}/toggle-status`,
+        { isActive: !provider.isActive },
+        { headers: getAuthHeaders() }
+      );
+
+      toast.success(response.data.message || 'Provider status updated');
+      await fetchProviders();
+    } catch (error) {
+      console.error('Error updating provider status:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to update provider');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (provider) => {
+    const confirmed = window.confirm(`Delete provider "${provider.name}"? This will remove the provider and related records.`);
+    if (!confirmed) {
+      return;
+    }
+
+    const actionKey = `delete-${provider._id}`;
+    setActionLoading(actionKey);
+
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/provider/${provider._id}`,
+        { headers: getAuthHeaders() }
+      );
+
+      toast.success(response.data.message || 'Provider deleted successfully');
+      await fetchProviders();
+    } catch (error) {
+      console.error('Error deleting provider:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete provider');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const activeProviders = providers.filter((provider) => provider.isActive !== false).length;
+  const inactiveProviders = providers.length - activeProviders;
+
+  return (
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef4ff_45%,#f8fafc_100%)]">
+      {/* Back Navigation Bar */}
+      <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+        <Link 
+          to="/admin/dashboard"
+          className="group inline-flex items-center gap-3 text-emerald-500 hover:text-emerald-400 transition-all font-black uppercase tracking-widest text-[10px]"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all shadow-lg shadow-emerald-500/10">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          Back to Dashboard
+        </Link>
+      </div>
+      <div className="border-b border-slate-200/70 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">Admin Panel</p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-900">Manage Providers</h1>
+            <p className="mt-1 text-sm text-slate-600">Review provider accounts, activate or deactivate access, and remove accounts when needed.</p>
+          </div>
+          <button
+            onClick={fetchProviders}
+            disabled={loading}
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ArrowPathIcon className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Total Providers</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{providers.length}</p>
+              </div>
+              <div className="rounded-2xl bg-blue-100 p-3 text-blue-700">
+                <UserGroupIcon className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Active Accounts</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{activeProviders}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
+                <PowerIcon className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Verified Providers</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {providers.filter((provider) => provider.isVerified).length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{inactiveProviders} inactive</p>
+              </div>
+              <div className="rounded-2xl bg-violet-100 p-3 text-violet-700">
+                <ShieldCheckIcon className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)]">
+          <div className="border-b border-slate-200 px-6 py-5">
+            <h2 className="text-lg font-semibold text-slate-900">Provider Directory</h2>
+            <p className="mt-1 text-sm text-slate-500">Use the controls on the right to manage each provider account.</p>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center px-6 py-20">
+              <ArrowPathIcon className="h-8 w-8 animate-spin text-emerald-600" />
+            </div>
+          ) : providers.length === 0 ? (
+            <div className="px-6 py-20 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <UserGroupIcon className="h-8 w-8" />
+              </div>
+              <h3 className="mt-5 text-xl font-semibold text-slate-900">No providers found</h3>
+              <p className="mt-2 text-sm text-slate-500">Provider accounts will appear here as soon as they register.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Provider</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Contact</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Stats</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Status</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {providers.map((provider, index) => {
+                    const toggleActionKey = `toggle-${provider._id}`;
+                    const deleteActionKey = `delete-${provider._id}`;
+                    const isToggling = actionLoading === toggleActionKey;
+                    const isDeleting = actionLoading === deleteActionKey;
+
+                    return (
+                      <motion.tr
+                        key={provider._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="hover:bg-slate-50/80"
+                      >
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={provider.avatar || 'https://via.placeholder.com/150'}
+                              alt={provider.name}
+                              className="h-12 w-12 rounded-2xl object-cover ring-1 ring-slate-200"
+                            />
+                            <div>
+                              <p className="font-semibold text-slate-900">{provider.name}</p>
+                              <p className="text-sm text-slate-500">{provider.email}</p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                Joined {provider.createdAt ? new Date(provider.createdAt).toLocaleDateString() : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5 text-sm text-slate-600">
+                          <p>{provider.phone}</p>
+                          <p className="mt-1 text-slate-500">{provider.location?.address || provider.location?.city || 'Location not provided'}</p>
+                        </td>
+
+                        <td className="px-6 py-5 text-sm text-slate-600">
+                          <p>{provider.serviceCount || 0} services</p>
+                          <p className="mt-1">{provider.bookingCount || 0} bookings</p>
+                          <p className="mt-1 text-slate-500">Rating {Number(provider.avgRating || 0).toFixed(1)}</p>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col gap-2">
+                            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                              provider.isActive === false
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {provider.isActive === false ? 'Inactive' : 'Active'}
+                            </span>
+                            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                              provider.isVerified
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {provider.isVerified ? 'Verified' : 'Unverified'}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => handleToggleStatus(provider)}
+                              disabled={isToggling || isDeleting}
+                              className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                provider.isActive === false
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  : 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              }`}
+                            >
+                              <PowerIcon className="mr-2 h-4 w-4" />
+                              {isToggling ? 'Updating...' : provider.isActive === false ? 'Activate' : 'Deactivate'}
+                            </button>
+
+                            <button
+                              onClick={() => handleDelete(provider)}
+                              disabled={isDeleting || isToggling}
+                              className="inline-flex items-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <TrashIcon className="mr-2 h-4 w-4" />
+                              {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ManageProviders;
