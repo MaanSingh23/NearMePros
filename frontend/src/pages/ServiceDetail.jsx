@@ -133,7 +133,8 @@ const ServiceDetail = () => {
       return cleanPath;
     }
 
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const defaultBaseUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://nearmepros.onrender.com';
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || defaultBaseUrl;
     const finalPath = cleanPath.includes('uploads/') ? cleanPath.split('uploads/').pop() : cleanPath;
     return `${baseUrl}/uploads/${finalPath.replace(/\\/g, '/')}`;
   };
