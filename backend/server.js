@@ -19,7 +19,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const io = socketIo(server, {
   cors: {
-    origin: [FRONTEND_URL, "https://nearmepros.vercel.app"], // Add your future Vercel URL here
+    origin: [FRONTEND_URL, "https://nearmepros.vercel.app"],
     methods: ["GET", "POST"],
     credentials: true
   }
