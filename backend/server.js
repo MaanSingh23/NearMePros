@@ -11,24 +11,26 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// Allow Vercel frontend and Local frontend
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const io = socketIo(server, {
   cors: {
-    origin: FRONTEND_URL,
-    methods: ["GET", "POST"]
+    origin: [FRONTEND_URL, "https://nearmepros.vercel.app"], // Add your future Vercel URL here
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: [FRONTEND_URL, "https://nearmepros.vercel.app"],
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// IMPORTANT: Serve static files from uploads directory
+// Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MongoDB Connection
@@ -49,6 +51,21 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/verification', require('./routes/verification'));
 app.use('/api/admin', require('./routes/admin'));
 
+// Professional API Health Check / Home Route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Near Me Pros API is Professionaly Working 🚀',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      auth: '/api/auth',
+      services: '/api/services',
+      bookings: '/api/bookings'
+    }
+  });
+});
+
 // Socket.io for real-time notifications
 io.on('connection', (socket) => {
   console.log('🟢 New client connected');
@@ -64,22 +81,6 @@ io.on('connection', (socket) => {
 });
 
 app.set('io', io);
-
-// --- DEPLOYMENT CONFIGURATION ---
-// Serve static files from the React frontend in production
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../frontend/dist');
-  app.use(express.static(frontendPath));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
-} else {
-  // Friendly landing page for development if someone hits the root
-  app.get('/', (req, res) => {
-    res.send('Near Me Pros API is running. Switch to the frontend (Port 5173) to see the website.');
-  });
-}
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
