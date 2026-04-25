@@ -2,18 +2,12 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const { uploadToImageKit } = require('../utils/imageKit');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', 'uploads'));
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
-});
+// Configure multer for memory storage (for cloud uploads)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -91,7 +85,12 @@ router.put('/profile', auth, upload.single('avatar'), async (req, res) => {
     }
 
     if (req.file) {
-      user.avatar = buildAvatarUrl(req, `uploads/${req.file.filename}`);
+      try {
+        const ikResponse = await uploadToImageKit(req.file.buffer, req.file.originalname);
+        user.avatar = ikResponse.url; // Store the full cloud URL
+      } catch (uploadError) {
+        console.error('Error uploading avatar to ImageKit:', uploadError);
+      }
     }
 
     await user.save();

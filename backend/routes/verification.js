@@ -3,8 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { uploadToImageKit } = require('../utils/imageKit');
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Verify Aadhar card
 router.post('/verify-aadhar', auth, upload.single('document'), async (req, res) => {
@@ -14,7 +15,14 @@ router.post('/verify-aadhar', auth, upload.single('document'), async (req, res) 
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const docPath = `/uploads/${file.filename}`;
+    let docPath = '';
+    try {
+      const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
+      docPath = ikResponse.url;
+    } catch (uploadError) {
+      console.error('Error uploading verification doc to ImageKit:', uploadError);
+      return res.status(500).json({ success: false, message: 'Upload failed' });
+    }
     
     // 1. Instantly save the document as "Pending" for manual review
     await User.findByIdAndUpdate(req.user.userId, {

@@ -5,18 +5,11 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const { uploadToImageKit } = require('../utils/imageKit');
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    // Create unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (for cloud uploads)
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
@@ -135,10 +128,19 @@ router.post('/', auth, upload.array('images', 5), async (req, res) => {
       return res.status(404).json({ message: 'Provider not found' });
     }
 
-    // FIX: Store only the filename, not full path
-    const images = req.files ? req.files.map(file => {
-      return file.filename; // Store only filename like "123456789-image.jpg"
-    }) : [];
+    // Upload images to ImageKit
+    const images = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
+          images.push(ikResponse.url); // Store the full cloud URL
+        } catch (uploadError) {
+          console.error('Error uploading to ImageKit:', uploadError);
+          // Continue with other files or skip
+        }
+      }
+    }
 
     // Parse availability if it's a string
     let parsedAvailability = availability;
@@ -221,10 +223,16 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
       }
     }
     
-    // Add new images if uploaded
+    // Add new images if uploaded to ImageKit
     if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(file => file.filename); // Store only filename
-      service.images = [...service.images, ...newImages];
+      for (const file of req.files) {
+        try {
+          const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
+          service.images.push(ikResponse.url); // Store full cloud URL
+        } catch (uploadError) {
+          console.error('Error uploading to ImageKit:', uploadError);
+        }
+      }
     }
 
     await service.save();
