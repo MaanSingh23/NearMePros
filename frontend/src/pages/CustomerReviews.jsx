@@ -15,12 +15,12 @@ import {
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400';
   if (imagePath.startsWith('http')) return imagePath;
-  return `http://localhost:5000/uploads/${imagePath}`;
+  return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${imagePath}`;
 };
 
 const StarRating = ({ value, onChange, readOnly = false, size = 'h-8 w-8' }) => (

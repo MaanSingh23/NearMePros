@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = 'http://localhost:5000/api/services';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/services`;
 
 function ManageServices() {
   const [services, setServices] = useState([]);
@@ -126,7 +126,7 @@ function ManageServices() {
                     <div className="flex items-center gap-6">
                       <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border border-stone-100 dark:border-stone-800 shadow-lg">
                         <img 
-                          src={service.images?.[0] ? `http://localhost:5000/uploads/${service.images[0]}` : 'https://via.placeholder.com/150'} 
+                          src={service.images?.[0] ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${service.images[0]}` : 'https://via.placeholder.com/150'} 
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-110" 
                           alt={service.name} 
                         />

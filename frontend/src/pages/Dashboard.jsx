@@ -31,7 +31,7 @@ function Dashboard() {
 
   const fetchBookings = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/bookings/my-bookings', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bookings/my-bookings`, {
         headers: { 'x-auth-token': localStorage.getItem('token') }
       });
       setBookings(response.data);

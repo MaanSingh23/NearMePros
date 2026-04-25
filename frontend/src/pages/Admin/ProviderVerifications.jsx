@@ -325,7 +325,7 @@ function ProviderVerifications() {
                        <div className="group relative rounded-[2rem] overflow-hidden border-4 border-white shadow-xl dark:border-stone-800">
                           {selectedProvider.verificationDocs?.identityDocs?.find(d => d.docType === 'aadhar')?.url ? (
                             <img 
-                              src={`http://localhost:5000${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
+                              src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
                               className="w-full h-auto min-h-[250px] object-cover" 
                               alt="Aadhar Card" 
                             />

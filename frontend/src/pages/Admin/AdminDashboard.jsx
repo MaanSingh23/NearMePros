@@ -23,7 +23,7 @@ function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/dashboard', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/admin/dashboard`, {
         headers: { 'x-auth-token': localStorage.getItem('token') }
       });
       setStats(response.data.stats);
