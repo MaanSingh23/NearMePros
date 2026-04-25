@@ -75,7 +75,7 @@ function Navbar() {
                 </span>
               </span>
               <span className="hidden sm:block">
-                <span className="block text-xl font-black tracking-tight text-stone-950 dark:text-white">Nearify</span>
+                <span className="block text-xl font-black tracking-tight text-stone-950 dark:text-white">Near Me Pros</span>
               </span>
             </Link>
 

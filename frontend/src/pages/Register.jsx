@@ -105,7 +105,7 @@ function Register() {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
             <div>
               <h2 className="text-4xl font-black tracking-tight">Create Account</h2>
-              <p className="mt-2 text-stone-500 font-medium">Join Nearify today to explore or offer services.</p>
+              <p className="mt-2 text-stone-500 font-medium">Join Near Me Pros today to explore or offer services.</p>
             </div>
             
             <form className="mt-8 space-y-5" onSubmit={handleSubmit}>

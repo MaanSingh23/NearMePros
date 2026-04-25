@@ -18,7 +18,7 @@ function Footer() {
               <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-stone-950 shadow-lg shadow-emerald-500/20 transition-all duration-300 group-hover:scale-105">
                 <SparklesIcon className="h-6 w-6 font-bold" />
               </span>
-              <span className="block text-2xl font-black tracking-tighter text-stone-950 dark:text-white">Nearify.</span>
+              <span className="block text-2xl font-black tracking-tighter text-stone-950 dark:text-white">Near Me Pros.</span>
             </Link>
             <p className="mt-8 text-base leading-relaxed text-stone-600 font-medium dark:text-stone-400">
               India's premier marketplace for premium home services. From salon treatments to technical repairs, we deliver excellence to your doorstep.
@@ -63,7 +63,7 @@ function Footer() {
 
           {/* Column 3: For Partners */}
           <div className="space-y-8">
-            <h3 className="text-xs font-black uppercase tracking-[0.25em] text-emerald-500">Join Nearify</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.25em] text-emerald-500">Join Near Me Pros</h3>
             <ul className="space-y-5">
               {[
                 { label: 'Register as a Professional', to: '/register' },
@@ -84,8 +84,8 @@ function Footer() {
           <div className="space-y-8">
             <h3 className="text-xs font-black uppercase tracking-[0.25em] text-emerald-500">Company</h3>
             <ul className="space-y-5">
-              <li><Link to="/profile" className="text-sm font-bold text-stone-600 hover:text-emerald-500 transition-colors dark:text-stone-400 dark:hover:text-white">About Nearify</Link></li>
-              <li><a href="mailto:support@nearify.com" className="flex items-center gap-2 text-sm font-bold text-stone-600 hover:text-emerald-500 transition-colors dark:text-stone-400 dark:hover:text-white"><PhoneIcon className="h-4 w-4" /> support@nearify.com</a></li>
+              <li><Link to="/profile" className="text-sm font-bold text-stone-600 hover:text-emerald-500 transition-colors dark:text-stone-400 dark:hover:text-white">About Near Me Pros</Link></li>
+              <li><a href="mailto:support@nearmepros.com" className="flex items-center gap-2 text-sm font-bold text-stone-600 hover:text-emerald-500 transition-colors dark:text-stone-400 dark:hover:text-white"><PhoneIcon className="h-4 w-4" /> support@nearmepros.com</a></li>
               <li className="pt-6 border-t border-stone-200 mt-6 dark:border-white/5">
                 <Link to="/admin/login" className="flex items-center gap-3 text-xs font-black text-emerald-600 hover:text-emerald-500 transition-all uppercase tracking-widest group dark:text-emerald-500/80 dark:hover:text-emerald-400">
                   <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
@@ -105,7 +105,7 @@ function Footer() {
              <Link to="/services" className="text-[11px] font-black uppercase tracking-[0.15em] text-stone-400 hover:text-emerald-500 transition-colors dark:text-stone-600 dark:hover:text-stone-300">Terms of Service</Link>
           </div>
           <p className="text-[11px] font-black uppercase tracking-[0.15em] text-stone-400 dark:text-stone-600">
-            &copy; {new Date().getFullYear()} Nearify Hub. Built With Trust.
+            &copy; {new Date().getFullYear()} Near Me Pros Hub. Built With Trust.
           </p>
         </div>
       </div>

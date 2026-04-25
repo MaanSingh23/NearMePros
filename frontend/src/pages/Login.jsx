@@ -95,7 +95,7 @@ function Login() {
 
               <div className="text-center mt-6">
                 <p className="text-sm font-medium text-stone-600 dark:text-stone-400">
-                  New to Nearify?{' '}
+                  New to Near Me Pros?{' '}
                   <Link to="/register" className="font-black text-stone-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400">
                     Create an account
                   </Link>

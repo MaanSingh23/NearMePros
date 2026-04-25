@@ -353,7 +353,7 @@ function Home() {
                   <p className="mt-4 text-stone-400 text-lg max-w-md">Join thousands of users who have streamlined their local booking experience.</p>
                   <div className="mt-10 flex flex-wrap gap-4">
                     <Link to="/register" className="rounded-full bg-primary-500 px-8 py-4 font-bold text-stone-950 hover:bg-primary-400 transition transform hover:-translate-y-1 shadow-lg shadow-primary-500/20">
-                      Join Nearify
+                      Join Near Me Pros
                     </Link>
                     <Link to="/services" className="rounded-full bg-white/10 border border-white/10 px-8 py-4 font-bold text-white hover:bg-white/15 transition backdrop-blur-sm">
                       Browse Services
