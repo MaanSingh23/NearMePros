@@ -17,7 +17,10 @@ function ServiceCard({ service }) {
   const getImageUrl = (imagePath) => {
     if (!imagePath) return fallbackImages[fallbackIndex];
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:5000/uploads/${imagePath}`;
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    // Clean up path if it contains 'uploads/' twice or uses backslashes
+    const cleanPath = imagePath.includes('uploads/') ? imagePath.split('uploads/').pop() : imagePath;
+    return `${baseUrl}/uploads/${cleanPath.replace(/\\/g, '/')}`;
   };
 
   const serviceImage = images && images.length > 0 
