@@ -21,7 +21,7 @@ import {
   HomeModernIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
-import axios from 'axios';
+import api from '../utils/api';
 import { useLocation } from '../context/LocationContext';
 import ServiceCard from '../components/ServiceCard';
 
@@ -60,7 +60,7 @@ function Home() {
   const fetchNearbyServices = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/services/nearby', {
+      const response = await api.get('/services/nearby', {
         params: { lat: location.lat, lng: location.lng, radius: 10 }
       });
       setNearbyServices(response.data.slice(0, 3)); // Focus on top 3 for clean aesthetic
@@ -73,7 +73,7 @@ function Home() {
 
   const fetchLatestReviews = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/reviews/latest?limit=6');
+      const response = await api.get('/reviews/latest?limit=6');
       setReviews(response.data);
     } catch (error) {
       // Silently handle - reviews are non-critical

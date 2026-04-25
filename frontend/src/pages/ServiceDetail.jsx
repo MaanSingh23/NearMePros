@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
-import axios from 'axios';
+import api from '../utils/api';
 import { motion } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -57,7 +57,7 @@ const ServiceDetail = () => {
 
   const fetchServiceDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/services/${id}`);
+      const response = await api.get(`/services/${id}`);
       setService(response.data);
       setProvider(response.data.providerId);
     } catch (error) {
@@ -70,7 +70,7 @@ const ServiceDetail = () => {
 
   const fetchReviews = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/reviews/service/${id}`);
+      const response = await api.get(`/reviews/service/${id}`);
       setReviews(response.data);
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -106,10 +106,9 @@ const ServiceDetail = () => {
         }
       };
 
-      const response = await axios.post(
-        'http://localhost:5000/api/bookings',
-        bookingPayload,
-        { headers: { 'x-auth-token': localStorage.getItem('token') } }
+      const response = await api.post(
+        '/bookings',
+        bookingPayload
       );
 
       toast.success('Booking request sent successfully!');
@@ -135,11 +134,11 @@ const ServiceDetail = () => {
     if (imagePath.includes('uploads/')) {
       // Extract just the filename
       const filename = imagePath.split('uploads/')[1].split('\\').pop().split('/').pop();
-      return `http://localhost:5000/uploads/${filename}`;
+      return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${filename}`;
     }
     
     // If it's just a filename
-    return `http://localhost:5000/uploads/${imagePath}`;
+    return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${imagePath}`;
   };
 
   // Error handler for images

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../utils/api';
 import { motion } from 'framer-motion';
 import { 
   CalendarIcon, 
@@ -33,12 +33,10 @@ function Bookings() {
   const fetchBookings = async () => {
     try {
       const endpoint = user?.role === 'provider' 
-        ? 'http://localhost:5000/api/bookings/provider-bookings'
-        : 'http://localhost:5000/api/bookings/my-bookings';
+        ? '/bookings/provider-bookings'
+        : '/bookings/my-bookings';
       
-      const response = await axios.get(endpoint, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get(endpoint);
       setBookings(response.data);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -50,9 +48,7 @@ function Bookings() {
 
   const fetchBookingDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/bookings/${id}`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get(`/bookings/${id}`);
       setSelectedBooking(response.data);
     } catch (error) {
       console.error('Error fetching booking details:', error);
@@ -64,10 +60,9 @@ function Bookings() {
 
   const updateBookingStatus = async (bookingId, status) => {
     try {
-      const response = await axios.put(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
-        { status },
-        { headers: { 'x-auth-token': localStorage.getItem('token') } }
+      const response = await api.put(
+        `/bookings/${bookingId}/status`,
+        { status }
       );
       
       toast.success(response.data?.message || `Booking ${status} successfully`);

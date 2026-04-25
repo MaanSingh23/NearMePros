@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../utils/api';
 import { motion } from 'framer-motion';
 import {
   BriefcaseIcon,
@@ -17,8 +17,6 @@ import {
   SparklesIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
-
-const API_BASE_URL = 'http://localhost:5000/api';
 
 function ProviderDashboard() {
   const { user } = useAuth();
@@ -39,15 +37,10 @@ function ProviderDashboard() {
     fetchProviderServices();
   }, []);
 
-  const getAuthHeaders = () => ({
-    'x-auth-token': localStorage.getItem('token')
-  });
-
   const fetchDashboardData = async () => {
     try {
-      const bookingsResponse = await axios.get(`${API_BASE_URL}/bookings/provider-bookings`, {
-        headers: getAuthHeaders()
-      }).catch(() => axios.get(`${API_BASE_URL}/provider/bookings`, { headers: getAuthHeaders() }));
+      const bookingsResponse = await api.get('/bookings/provider-bookings')
+        .catch(() => api.get('/provider/bookings'));
       
       const providerBookings = Array.isArray(bookingsResponse.data) ? bookingsResponse.data : (bookingsResponse.data.bookings || []);
       setBookings(providerBookings);
@@ -71,9 +64,7 @@ function ProviderDashboard() {
 
   const fetchProviderServices = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/services/provider`, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.get('/services/provider');
       setServices(response.data);
       setStats(prev => ({ ...prev, totalServices: response.data.length }));
     } catch (error) {
@@ -106,10 +97,9 @@ function ProviderDashboard() {
   const handleBookingStatusUpdate = async (bookingId, status) => {
     setActionLoading(`${bookingId}-${status}`);
     try {
-      const response = await axios.patch(
-        `${API_BASE_URL}/provider/bookings/${bookingId}/status`,
-        { status },
-        { headers: getAuthHeaders() }
+      const response = await api.patch(
+        `/provider/bookings/${bookingId}/status`,
+        { status }
       );
       toast.success(response.data.message || `Booking ${status} successfully`);
       setBookings((currentBookings) =>

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useLocation } from '../context/LocationContext';
 import ServiceCard from '../components/ServiceCard';
 import CategoryFilter from '../components/CategoryFilter';
-import axios from 'axios';
+import api from '../utils/api';
 import { AdjustmentsHorizontalIcon, ArrowPathIcon, ExclamationTriangleIcon, FunnelIcon, MagnifyingGlassIcon, MapPinIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 function Services() {
@@ -44,11 +44,14 @@ function Services() {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/services/nearby', {
+      const response = await api.get('/services/nearby', {
         params: {
           lat: location.lat,
           lng: location.lng,
-          radius: filters.radius, minPrice: filters.minPrice || undefined, maxPrice: filters.maxPrice || undefined, rating: filters.rating > 0 ? filters.rating : undefined,
+          radius: filters.radius, 
+          minPrice: filters.minPrice || undefined, 
+          maxPrice: filters.maxPrice || undefined, 
+          rating: filters.rating > 0 ? filters.rating : undefined,
           category: filters.category !== 'all' ? filters.category : undefined
         }
       });
