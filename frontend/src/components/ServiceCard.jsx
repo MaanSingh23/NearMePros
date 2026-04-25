@@ -16,11 +16,19 @@ function ServiceCard({ service }) {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return fallbackImages[fallbackIndex];
-    if (imagePath.startsWith('http')) return imagePath;
+    
+    // If the backend returns a localhost URL, we MUST replace it with the live Render URL
+    let cleanPath = imagePath;
+    if (typeof cleanPath === 'string' && cleanPath.includes('localhost:5000')) {
+      cleanPath = cleanPath.split('uploads/').pop();
+    } else if (typeof cleanPath === 'string' && cleanPath.startsWith('http')) {
+      return cleanPath;
+    }
+
     const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    // Clean up path if it contains 'uploads/' twice or uses backslashes
-    const cleanPath = imagePath.includes('uploads/') ? imagePath.split('uploads/').pop() : imagePath;
-    return `${baseUrl}/uploads/${cleanPath.replace(/\\/g, '/')}`;
+    // Ensure we don't have double 'uploads/' and fix backslashes
+    const finalPath = cleanPath.includes('uploads/') ? cleanPath.split('uploads/').pop() : cleanPath;
+    return `${baseUrl}/uploads/${finalPath.replace(/\\/g, '/')}`;
   };
 
   const serviceImage = images && images.length > 0 

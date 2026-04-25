@@ -210,13 +210,13 @@ export const LocationProvider = ({ children }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const response = await fetch('https://ipwho.is/', { signal: controller.signal });
+      const response = await fetch('https://ipapi.co/json/', { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!response.ok) throw new Error('Network error');
       const data = await response.json();
       
-      if (!data.success) throw new Error(data.message);
+      if (data.error) throw new Error(data.reason || 'IP Location Error');
 
       return {
         lat: data.latitude,
@@ -224,8 +224,8 @@ export const LocationProvider = ({ children }) => {
         area: data.city,
         city: data.city,
         state: data.region,
-        country: data.country,
-        address: `${data.city}, ${data.region}, ${data.country}`,
+        country: data.country_name,
+        address: `${data.city}, ${data.region}, ${data.country_name}`,
         label: `${data.city}, ${data.region}`,
         source: 'ip',
         isDefault: false,

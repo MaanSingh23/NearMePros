@@ -124,21 +124,18 @@ const ServiceDetail = () => {
 
   // COMPLETE IMAGE URL FUNCTION - Handles all cases
   const getImageUrl = (imagePath, index = 0) => {
-    // If no image path, return fallback
     if (!imagePath) return fallbackImages[index % fallbackImages.length];
     
-    // If it's already a full URL (http, https)
-    if (imagePath.startsWith('http')) return imagePath;
-    
-    // If path already has 'uploads/'
-    if (imagePath.includes('uploads/')) {
-      // Extract just the filename
-      const filename = imagePath.split('uploads/')[1].split('\\').pop().split('/').pop();
-      return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${filename}`;
+    let cleanPath = imagePath;
+    if (typeof cleanPath === 'string' && cleanPath.includes('localhost:5000')) {
+      cleanPath = cleanPath.split('uploads/').pop();
+    } else if (typeof cleanPath === 'string' && cleanPath.startsWith('http')) {
+      return cleanPath;
     }
-    
-    // If it's just a filename
-    return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${imagePath}`;
+
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const finalPath = cleanPath.includes('uploads/') ? cleanPath.split('uploads/').pop() : cleanPath;
+    return `${baseUrl}/uploads/${finalPath.replace(/\\/g, '/')}`;
   };
 
   // Error handler for images
