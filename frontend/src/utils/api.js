@@ -11,6 +11,8 @@ if (API_URL.includes('localhost')) {
   console.warn('[Near Me Pros] WARNING: Your app is still trying to connect to your local computer. This will NOT work on mobile phones. Please ensure VITE_API_URL is set correctly in Vercel settings.');
 }
 
+import toast from 'react-hot-toast';
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -28,6 +30,27 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Global Error Handling Interceptor
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.message || error.message || 'Unknown Error';
+    
+    // Specifically handle network errors (e.g. server sleeping)
+    if (error.code === 'ERR_NETWORK') {
+      toast.error('Unable to connect to server. Please wait 1 minute for the backend to wake up.', { duration: 6000 });
+    } else {
+      // Don't show toast for 401s if they are handled by auth context
+      if (error.response?.status !== 401) {
+        toast.error(`API Error: ${message}`);
+      }
+    }
+    
+    console.error('[Near Me Pros] Connection Failure:', error);
     return Promise.reject(error);
   }
 );
