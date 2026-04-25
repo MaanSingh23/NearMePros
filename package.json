@@ -1,0 +1,10 @@
+{
+  "name": "near-me-pros",
+  "version": "1.0.0",
+  "description": "Premium Local Service Marketplace",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && npm install && node server.js",
+    "dev": "npm run dev --prefix frontend & npm run dev --prefix backend"
+  }
+}

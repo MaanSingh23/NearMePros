@@ -49,11 +49,6 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/verification', require('./routes/verification'));
 app.use('/api/admin', require('./routes/admin'));
 
-// Test route to check if server is running
-app.get('/test', (req, res) => {
-  res.json({ message: 'Server is running!' });
-});
-
 // Socket.io for real-time notifications
 io.on('connection', (socket) => {
   console.log('🟢 New client connected');
@@ -69,6 +64,22 @@ io.on('connection', (socket) => {
 });
 
 app.set('io', io);
+
+// --- DEPLOYMENT CONFIGURATION ---
+// Serve static files from the React frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+  app.use(express.static(frontendPath));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // Friendly landing page for development if someone hits the root
+  app.get('/', (req, res) => {
+    res.send('Near Me Pros API is running. Switch to the frontend (Port 5173) to see the website.');
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
