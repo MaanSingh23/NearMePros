@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { 
@@ -17,7 +17,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { ShieldCheckIcon as ShieldCheckIconSolid } from '@heroicons/react/24/solid';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
 function Verification() {
   const { user } = useAuth();
@@ -34,9 +33,7 @@ function Verification() {
 
   const fetchVerificationStatus = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/verification/status`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get('/verification/status');
       setVerificationStatus(response.data);
     } catch (error) {
       console.error('Error fetching status:', error);
@@ -53,11 +50,8 @@ function Verification() {
     formData.append('document', file);
 
     try {
-      const endpoint = `${API_BASE_URL}/verification/verify-aadhar`;
-
-      const response = await axios.post(endpoint, formData, {
+      const response = await api.post('/verification/verify-aadhar', formData, {
         headers: {
-          'x-auth-token': localStorage.getItem('token'),
           'Content-Type': 'multipart/form-data'
         }
       });

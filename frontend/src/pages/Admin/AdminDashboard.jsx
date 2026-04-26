@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../utils/api';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   UsersIcon,
   UserGroupIcon,
@@ -23,13 +24,12 @@ function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/admin/dashboard`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get('/admin/dashboard');
       setStats(response.data.stats);
       setRecentBookings(response.data.recentBookings);
     } catch (error) {
-       // Silently handle error
+      console.error('Dashboard Fetch Error:', error);
+      toast.error('Failed to sync command center metrics');
     } finally {
       setLoading(false);
     }

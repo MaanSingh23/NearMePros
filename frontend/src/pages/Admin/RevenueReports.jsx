@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -31,7 +31,6 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || ''}/api/admin`;
 
 function RevenueReports() {
   const [report, setReport] = useState(null);
@@ -41,23 +40,12 @@ function RevenueReports() {
     fetchRevenueReport();
   }, []);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      throw new Error('Admin session expired. Please log in again.');
-    }
-
-    return { 'x-auth-token': token };
-  };
 
   const fetchRevenueReport = async () => {
     setLoading(true);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/revenue`, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.get('/admin/revenue');
 
       setReport(response.data);
     } catch (error) {

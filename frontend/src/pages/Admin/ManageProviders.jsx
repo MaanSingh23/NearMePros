@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -11,8 +11,6 @@ import {
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || ''}/api/admin`;
-
 function ManageProviders() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,23 +20,12 @@ function ManageProviders() {
     fetchProviders();
   }, []);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      throw new Error('Admin session expired. Please log in again.');
-    }
-
-    return { 'x-auth-token': token };
-  };
 
   const fetchProviders = async () => {
     setLoading(true);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/providers`, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.get('/admin/providers');
 
       setProviders(response.data.providers || []);
     } catch (error) {
@@ -54,10 +41,9 @@ function ManageProviders() {
     setActionLoading(actionKey);
 
     try {
-      const response = await axios.patch(
-        `${API_BASE_URL}/provider/${provider._id}/toggle-status`,
-        { isActive: !provider.isActive },
-        { headers: getAuthHeaders() }
+      const response = await api.patch(
+        `/admin/provider/${provider._id}/toggle-status`,
+        { isActive: !provider.isActive }
       );
 
       toast.success(response.data.message || 'Provider status updated');
@@ -80,10 +66,7 @@ function ManageProviders() {
     setActionLoading(actionKey);
 
     try {
-      const response = await axios.delete(
-        `${API_BASE_URL}/provider/${provider._id}`,
-        { headers: getAuthHeaders() }
-      );
+      const response = await api.delete(`/admin/provider/${provider._id}`);
 
       toast.success(response.data.message || 'Provider deleted successfully');
       await fetchProviders();

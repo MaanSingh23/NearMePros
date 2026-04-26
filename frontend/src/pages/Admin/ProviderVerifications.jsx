@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -18,8 +18,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckBadgeIcon, ShieldCheckIcon as ShieldCheckIconSolid } from '@heroicons/react/24/solid';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin`;
-
 function ProviderVerifications() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,18 +29,11 @@ function ProviderVerifications() {
     fetchPendingProviders();
   }, []);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    if (!token) throw new Error('Admin session expired. Please log in again.');
-    return { 'x-auth-token': token };
-  };
 
   const fetchPendingProviders = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/pending-providers`, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.get('/admin/pending-providers');
       setProviders(response.data.providers || []);
     } catch (error) {
       console.error('Error fetching pending providers:', error);
@@ -55,7 +46,7 @@ function ProviderVerifications() {
   const handleApprove = async (providerId) => {
     setActionLoading(providerId);
     try {
-      await axios.patch(`${API_BASE_URL}/verify-provider/${providerId}`, {}, { headers: getAuthHeaders() });
+      await api.patch(`/admin/verify-provider/${providerId}`);
       toast.success('Provider verified successfully', { icon: '✅' });
       setIsModalOpen(false);
       await fetchPendingProviders();
@@ -70,7 +61,7 @@ function ProviderVerifications() {
     const reason = window.prompt('Reason for rejection:') || 'Documents unclear or invalid.';
     setActionLoading(providerId);
     try {
-      await axios.patch(`${API_BASE_URL}/reject-provider/${providerId}`, { rejectionReason: reason }, { headers: getAuthHeaders() });
+      await api.patch(`/admin/reject-provider/${providerId}`, { rejectionReason: reason });
       toast.success('Provider rejected successfully', { icon: '❌' });
       setIsModalOpen(false);
       await fetchPendingProviders();
@@ -325,7 +316,9 @@ function ProviderVerifications() {
                        <div className="group relative rounded-[2rem] overflow-hidden border-4 border-white shadow-xl dark:border-stone-800">
                           {selectedProvider.verificationDocs?.identityDocs?.find(d => d.docType === 'aadhar')?.url ? (
                             <img 
-                              src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
+                              src={selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url.startsWith('http') 
+                                ? selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url 
+                                : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
                               className="w-full h-auto min-h-[250px] object-cover" 
                               alt="Aadhar Card" 
                             />
