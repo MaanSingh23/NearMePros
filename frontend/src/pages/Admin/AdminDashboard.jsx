@@ -76,10 +76,10 @@ function AdminDashboard() {
           </motion.div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
             <div>
-              <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-none mb-4">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight leading-none mb-4">
                 Platform <span className="text-emerald-500">Overview.</span>
               </h1>
-              <p className="text-stone-400 text-lg font-bold max-w-xl">
+              <p className="text-stone-400 text-base sm:text-lg font-bold max-w-xl">
                 Real-time governance and growth metrics for your local service marketplace.
               </p>
             </div>
@@ -109,7 +109,7 @@ function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="group relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-white/5 p-8 backdrop-blur-3xl hover:bg-white/[0.08] transition-all"
+              className="group relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] border border-white/5 bg-white/5 p-6 sm:p-8 backdrop-blur-3xl hover:bg-white/[0.08] transition-all"
             >
               <div className={`absolute top-0 right-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full blur-[60px] opacity-20 ${stat.color === 'emerald' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
               
@@ -124,52 +124,52 @@ function AdminDashboard() {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-10">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
           {/* Recent Activity Table */}
-          <div className="lg:col-span-8 order-2 lg:order-1">
-            <div className="rounded-[3rem] border border-white/5 bg-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl">
-              <div className="px-10 py-8 border-b border-white/5 flex items-center justify-between">
+          <div className="lg:col-span-8 order-1">
+            <div className="rounded-3xl sm:rounded-[3rem] border border-white/5 bg-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl">
+              <div className="px-6 sm:px-10 py-6 sm:py-8 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight">Recent Activity</h2>
-                  <p className="text-xs font-bold text-stone-500 uppercase tracking-widest mt-1">Live booking stream</p>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">Recent Activity</h2>
+                  <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mt-1">Live booking stream</p>
                 </div>
-                <Link to="/admin/bookings" className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-400 transition-colors">View All Bookings</Link>
+                <Link to="/admin/bookings" className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-400 transition-colors">View All</Link>
               </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-white/5 text-[10px] font-black uppercase tracking-widest text-stone-500">
                     <tr>
-                      <th className="px-10 py-5">Customer / Service</th>
-                      <th className="px-10 py-5">Date</th>
-                      <th className="px-10 py-5">Status</th>
-                      <th className="px-10 py-5 text-right">Revenue</th>
+                      <th className="px-6 sm:px-10 py-5 whitespace-nowrap">Customer / Service</th>
+                      <th className="px-6 sm:px-10 py-5 whitespace-nowrap">Date</th>
+                      <th className="px-6 sm:px-10 py-5 whitespace-nowrap">Status</th>
+                      <th className="px-6 sm:px-10 py-5 text-right whitespace-nowrap">Revenue</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {recentBookings.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="px-10 py-20 text-center text-stone-500 font-bold italic">"No recent booking activity detected."</td>
+                        <td colSpan="4" className="px-6 sm:px-10 py-20 text-center text-stone-500 font-bold italic">"No recent booking activity detected."</td>
                       </tr>
                     ) : (
                       recentBookings.map((booking) => (
                         <tr key={booking._id} className="group hover:bg-white/[0.02] transition-colors">
-                          <td className="px-10 py-6">
+                          <td className="px-6 sm:px-10 py-6">
                             <div className="flex flex-col">
-                              <span className="font-black text-white group-hover:text-emerald-400 transition-colors">{booking.userId?.name}</span>
-                              <span className="text-xs font-bold text-stone-500">{booking.serviceId?.name}</span>
+                              <span className="font-black text-white group-hover:text-emerald-400 transition-colors truncate max-w-[150px]">{booking.userId?.name}</span>
+                              <span className="text-[10px] font-bold text-stone-500 truncate max-w-[150px]">{booking.serviceId?.name}</span>
                             </div>
                           </td>
-                          <td className="px-10 py-6">
-                            <span className="text-xs font-black text-stone-400">{new Date(booking.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          <td className="px-6 sm:px-10 py-6">
+                            <span className="text-[10px] font-black text-stone-400 whitespace-nowrap">{new Date(booking.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                           </td>
-                          <td className="px-10 py-6">
-                            <span className={`inline-flex rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest ${getStatusColor(booking.status)}`}>
+                          <td className="px-6 sm:px-10 py-6">
+                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[8px] font-black uppercase tracking-widest ${getStatusColor(booking.status)}`}>
                               {booking.status}
                             </span>
                           </td>
-                          <td className="px-10 py-6 text-right">
-                            <span className="text-sm font-black text-white">₹{booking.totalAmount}</span>
+                          <td className="px-6 sm:px-10 py-6 text-right">
+                            <span className="text-xs sm:text-sm font-black text-white whitespace-nowrap">₹{booking.totalAmount}</span>
                           </td>
                         </tr>
                       ))
@@ -181,7 +181,7 @@ function AdminDashboard() {
           </div>
 
           {/* Governance Links */}
-          <div className="lg:col-span-4 order-1 lg:order-2 space-y-6">
+          <div className="lg:col-span-4 order-2 space-y-6">
             <h2 className="text-sm font-black uppercase tracking-[0.2em] text-stone-500 px-2">Management</h2>
             
             {[
@@ -192,17 +192,17 @@ function AdminDashboard() {
               <Link
                 key={action.to}
                 to={action.to}
-                className="group relative block overflow-hidden rounded-[2.5rem] border border-white/5 bg-white/5 p-8 transition-all hover:bg-white/[0.08] hover:scale-[1.02]"
+                className="group relative block overflow-hidden rounded-3xl sm:rounded-[2.5rem] border border-white/5 bg-white/5 p-6 sm:p-8 transition-all hover:bg-white/[0.08] hover:scale-[1.02]"
               >
                 <div className={`absolute bottom-0 right-0 h-24 w-24 translate-x-1/2 translate-y-1/2 rounded-full blur-[40px] opacity-10 ${action.color === 'emerald' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <div className="flex items-start justify-between relative z-10">
-                  <div className="flex gap-5">
-                    <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${action.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                      <action.icon className="h-7 w-7" />
+                <div className="flex items-start justify-between relative z-10 gap-4">
+                  <div className="flex items-center sm:items-start gap-4 sm:gap-5">
+                    <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl ${action.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                      <action.icon className="h-6 w-6 sm:h-7 sm:w-7" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black tracking-tight">{action.title}</h3>
-                      <p className="text-xs font-bold text-stone-500 mt-1">{action.desc}</p>
+                      <h3 className="text-lg sm:text-xl font-black tracking-tight">{action.title}</h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-stone-500 mt-1">{action.desc}</p>
                     </div>
                   </div>
                   {action.count !== undefined && (
@@ -219,8 +219,8 @@ function AdminDashboard() {
               </Link>
             ))}
 
-            <div className="rounded-[2.5rem] bg-emerald-500 p-10 text-stone-950 shadow-2xl shadow-emerald-500/20">
-               <h3 className="text-2xl font-black leading-none mb-4">Platform Health</h3>
+            <div className="rounded-3xl sm:rounded-[2.5rem] bg-emerald-500 p-8 sm:p-10 text-stone-950 shadow-2xl shadow-emerald-500/20">
+               <h3 className="text-xl sm:text-2xl font-black leading-none mb-4">Platform Health</h3>
                <div className="space-y-4">
                  <div className="flex justify-between items-end border-b border-stone-950/10 pb-2">
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Status</span>

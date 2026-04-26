@@ -105,29 +105,25 @@ function ProviderVerifications() {
           <div className="absolute top-0 right-0 h-[30rem] w-[30rem] translate-x-1/3 -translate-y-1/2 rounded-full bg-emerald-500/10 blur-[100px] pointer-events-none" />
           <div className="absolute bottom-0 left-0 h-40 w-40 -translate-x-1/2 translate-y-1/2 rounded-full bg-primary-800/10 blur-[80px] pointer-events-none" />
           
-          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-6 transition-all hover:bg-emerald-500/20">
-                <ShieldCheckIconSolid className="h-4 w-4" /> Security & Trust Protocol
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12 sm:mb-20">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4">
+                <ShieldCheckIconSolid className="h-4 w-4" /> Trust Governance
               </div>
-              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                Provider <span className="text-emerald-400">Verification</span> Center.
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-none text-white">
+                Identity <span className="text-emerald-400">Audits.</span>
               </h1>
-              <p className="mt-4 text-stone-400 text-lg font-bold leading-relaxed">
-                Review and approve provider documents here. Once approved, providers can begin listing their services on the platform.
+              <p className="mt-4 text-stone-400 text-sm sm:text-base font-bold max-w-xl">
+                Manual verification of professional credentials to maintain platform integrity.
               </p>
             </div>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={fetchPendingProviders}
-              disabled={loading}
-              className="inline-flex items-center gap-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 px-8 py-4 text-sm font-black text-white hover:bg-white/10 transition-all disabled:opacity-50 shadow-2xl group"
+              className="group flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-6 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all"
             >
-              <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin text-emerald-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-              Sync Dashboard
-            </motion.button>
+              <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`} />
+              Sync Queue
+            </button>
           </div>
         </motion.div>
       </div>
@@ -183,97 +179,46 @@ function ProviderVerifications() {
             </motion.div>
           </div>
 
-          {/* Providers List Container - Added more spacing above */}
-          <div className="rounded-[3rem] overflow-hidden bg-white border border-stone-200 shadow-2xl dark:bg-stone-900/50 dark:border-stone-800 mt-8">
-            <div className="px-8 py-8 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
-               <h2 className="text-2xl font-black text-stone-950 dark:text-white">Verification Queue</h2>
-               <div className="px-4 py-2 rounded-full bg-stone-100 text-[10px] font-black uppercase text-stone-500 dark:bg-stone-800">
-                 {providers.length} provider{providers.length !== 1 ? 's' : ''} waiting
-               </div>
-            </div>
-
-            {loading ? (
-              <div className="p-20 text-center">
-                <ArrowPathIcon className="h-12 w-12 animate-spin mx-auto text-emerald-500 mb-4" />
-                <p className="text-stone-400 font-bold tracking-widest uppercase text-xs">Loading Data...</p>
-              </div>
-            ) : providers.length === 0 ? (
-              <div className="p-20 text-center bg-stone-50 dark:bg-transparent">
-                <CheckBadgeIcon className="h-20 w-20 text-emerald-500/20 mx-auto mb-6" />
-                <h3 className="text-2xl font-black text-stone-900 dark:text-white">All Caught Up!</h3>
-                <p className="text-stone-500 font-medium font-bold">There are no pending documents to review right now.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-stone-50 dark:bg-stone-950/30">
-                      <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-stone-400">Provider Name</th>
-                      <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-stone-400">Contact Details</th>
-                      <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-stone-400">ID Status</th>
-                      <th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-widest text-stone-400">Manage</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                    {providers.map((provider) => (
-                      <motion.tr 
-                        key={provider._id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="group hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-all duration-300"
-                      >
-                        <td className="px-8 py-6">
-                           <div className="flex items-center gap-4">
-                              <div className="relative group/avatar">
-                                <img src={provider.avatar || `https://ui-avatars.com/api/?name=${provider.name}&background=random`} className="h-14 w-14 rounded-2xl object-cover ring-2 ring-stone-100 dark:ring-stone-800 group-hover/avatar:ring-emerald-500/50 transition-all" />
-                                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 border-2 border-white dark:border-stone-900 group-hover/avatar:scale-110 transition-transform" />
-                              </div>
-                              <div>
-                                <p className="font-black text-stone-950 dark:text-white text-lg">{provider.name}</p>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-emerald-500">Member</p>
-                              </div>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                           <p className="text-sm font-bold text-stone-600 dark:text-stone-300">{provider.email}</p>
-                           <p className="text-xs font-medium text-stone-400 mt-1">{provider.phone}</p>
-                        </td>
-                        <td className="px-8 py-6">
-                           <div className="flex flex-col gap-2">
-                             <div className="flex items-center gap-2">
-                               <span className={`h-2 w-2 rounded-full ${provider.isVerified ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 'bg-amber-500 shadow-lg shadow-amber-500/50'}`} />
-                               <span className="text-[10px] font-black text-stone-500 uppercase tracking-tighter">
-                                 {provider.isVerified ? 'Fully Verified' : 'Checking Documents'}
-                               </span>
-                             </div>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                           <div className="flex items-center justify-end gap-3">
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => openDocViewer(provider)}
-                                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-600 hover:bg-emerald-500 hover:text-white transition-all dark:bg-stone-800 dark:text-stone-400"
-                              >
-                                <EyeIcon className="h-6 w-6" />
-                              </motion.button>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleApprove(provider._id)}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
-                              >
-                                {actionLoading === provider._id ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <><CheckCircleIcon className="h-5 w-5" /> Approve</>}
-                              </motion.button>
-                           </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          {/* Providers List Container */}
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-2">
+            {providers.map((provider) => (
+              <motion.div
+                key={provider._id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] border border-white/5 bg-white/5 p-6 sm:p-8 backdrop-blur-3xl hover:bg-white/[0.08] transition-all"
+              >
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-6 relative z-10">
+                  <div className="flex items-center sm:items-start gap-4 sm:gap-6">
+                    <img
+                      src={provider.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${provider.name}`}
+                      alt={provider.name}
+                      className="h-14 w-14 sm:h-20 sm:w-20 rounded-2xl sm:rounded-3xl border-2 border-white/10 bg-white/5 object-cover"
+                    />
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">{provider.name}</h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-widest mt-1">Pending Approval</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-emerald-400">
+                          Provider
+                        </span>
+                        <span className="inline-flex rounded-full bg-stone-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                          {provider.location?.city || 'Ludhiana'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openDocViewer(provider)}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-stone-950 shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all"
+                  >
+                    <DocumentMagnifyingGlassIcon className="h-4 w-4" />
+                    Review Docs
+                  </button>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
@@ -289,91 +234,80 @@ function ProviderVerifications() {
               onClick={() => setIsModalOpen(false)}
               className="absolute inset-0 bg-stone-950/80 backdrop-blur-sm"
             />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-5xl rounded-[3rem] bg-white dark:bg-stone-900 overflow-hidden shadow-2xl border border-stone-100 dark:border-stone-800"
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl sm:rounded-[3.5rem] border border-white/10 bg-stone-950 p-6 sm:p-12 shadow-2xl backdrop-blur-2xl"
             >
-              <div className="flex h-[85vh] flex-col md:flex-row">
-                
-                <div className="flex-1 overflow-y-auto p-10 bg-stone-50 dark:bg-[#0c0a09]">
-                  <div className="flex items-center justify-between mb-8">
-                     <div>
-                       <h2 className="text-3xl font-black text-stone-950 dark:text-white tracking-tight">Manual ID Check</h2>
-                       <p className="text-stone-500 font-bold mt-1 uppercase tracking-widest text-[10px]">Reviewing {selectedProvider.name}'s identity documents</p>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="absolute right-4 top-4 sm:right-10 sm:top-10 h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center rounded-full bg-white/5 text-stone-400 hover:text-white transition-all"
+              >
+                <XCircleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
+              </button>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-10 sm:mb-12">
+                <img
+                  src={selectedProvider.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${selectedProvider.name}`}
+                  alt={selectedProvider.name}
+                  className="h-20 w-20 sm:h-24 sm:w-24 rounded-3xl border-2 border-emerald-500/20 object-cover shadow-2xl"
+                />
+                <div>
+                  <h3 className="text-2xl sm:text-4xl font-black tracking-tight text-white">{selectedProvider.name}</h3>
+                  <p className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-widest mt-2">Audit Session ID: {selectedProvider._id.slice(-8)}</p>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-8 sm:gap-12">
+                <div className="space-y-8 sm:space-y-12">
+                  <div>
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-6 sm:mb-8">Identity Documents</h4>
+                     <div className="group relative rounded-2xl sm:rounded-[2rem] overflow-hidden border-4 border-white shadow-xl dark:border-stone-800">
+                        {selectedProvider.verificationDocs?.identityDocs?.find(d => d.docType === 'aadhar')?.url ? (
+                          <img 
+                            src={selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url.startsWith('http') 
+                              ? selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url 
+                              : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
+                            className="w-full h-auto min-h-[250px] object-cover" 
+                            alt="Aadhar Card" 
+                          />
+                        ) : (
+                          <div className="h-64 flex flex-col items-center justify-center bg-stone-200/50 dark:bg-stone-800/50">
+                             <DocumentMagnifyingGlassIcon className="h-12 w-12 text-stone-300 mb-2" />
+                             <p className="text-xs font-black text-stone-400 uppercase">Aadhar missing</p>
+                          </div>
+                        )}
                      </div>
-                     <button onClick={() => setIsModalOpen(false)} className="h-12 w-12 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800 transition-all">
-                       <XCircleIcon className="h-6 w-6 text-stone-400" />
-                     </button>
-                  </div>
-
-                  <div className="grid gap-10">
-                    <div className="space-y-4">
-                       <div className="flex items-center gap-3 text-stone-900 dark:text-white font-black uppercase tracking-widest text-xs">
-                         <IdentificationIcon className="h-6 w-6 text-emerald-500" /> Government ID (Aadhar)
-                       </div>
-                       <div className="group relative rounded-[2rem] overflow-hidden border-4 border-white shadow-xl dark:border-stone-800">
-                          {selectedProvider.verificationDocs?.identityDocs?.find(d => d.docType === 'aadhar')?.url ? (
-                            <img 
-                              src={selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url.startsWith('http') 
-                                ? selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url 
-                                : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
-                              className="w-full h-auto min-h-[250px] object-cover" 
-                              alt="Aadhar Card" 
-                            />
-                          ) : (
-                            <div className="h-64 flex flex-col items-center justify-center bg-stone-200/50 dark:bg-stone-800/50">
-                               <DocumentMagnifyingGlassIcon className="h-12 w-12 text-stone-300 mb-2" />
-                               <p className="text-xs font-black text-stone-400 uppercase">Aadhar missing</p>
-                            </div>
-                          )}
-                       </div>
-                    </div>
-
                   </div>
                 </div>
 
-                <div className="w-full md:w-[350px] flex flex-col border-l border-stone-100 dark:border-stone-800 bg-white dark:bg-stone-900">
-                   <div className="flex-1 overflow-y-auto p-10">
-                     <div className="text-center mb-10">
-                       <img src={selectedProvider.avatar || `https://ui-avatars.com/api/?name=${selectedProvider.name}`} className="h-24 w-24 rounded-3xl mx-auto object-cover mb-4 ring-4 ring-stone-50 dark:ring-stone-800 shadow-lg" />
-                       <h3 className="text-2xl font-black text-stone-950 dark:text-white leading-tight">{selectedProvider.name}</h3>
-                       <p className="text-xs font-black text-emerald-500 uppercase tracking-widest mt-1">Status: Pending Review</p>
-                     </div>
-
-                     <div className="space-y-6">
-                        <div className="rounded-2xl bg-stone-50 dark:bg-stone-800/50 p-6 border border-stone-100 dark:border-stone-800">
-                          <p className="text-[10px] font-black text-stone-400 uppercase mb-2">Audit Instruction</p>
-                          <p className="text-xs font-bold text-stone-600 dark:text-stone-300 leading-relaxed">
-                            Verify the authenticity of the uploaded documents to ensure platform security and provider legitimacy.
-                          </p>
+                <div className="space-y-8 sm:space-y-12">
+                   <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-6 sm:mb-8">Verification Verdict</h4>
+                      <div className="rounded-2xl sm:rounded-[2rem] bg-white/5 p-6 sm:p-8 border border-white/5">
+                        <p className="text-sm sm:text-base font-bold text-stone-400 mb-8 sm:mb-10 leading-relaxed italic">
+                          "I have manually reviewed the identity documents provided. The Aadhar Card photo matches the profile, and the credentials appear valid for professional service listing."
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
+                          <button
+                            onClick={() => handleApprove(selectedProvider._id)}
+                            disabled={actionLoading === selectedProvider._id}
+                            className="flex-1 rounded-xl sm:rounded-2xl bg-emerald-500 px-6 sm:px-8 py-3.5 sm:py-4 text-xs font-black uppercase tracking-widest text-stone-950 shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                          >
+                            {actionLoading === selectedProvider._id ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <CheckCircleIcon className="h-5 w-5" />}
+                            Grant Access
+                          </button>
+                          <button
+                            onClick={() => handleReject(selectedProvider._id)}
+                            disabled={actionLoading === selectedProvider._id}
+                            className="flex-1 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 px-6 sm:px-8 py-3.5 sm:py-4 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
+                          >
+                            <XCircleIcon className="h-5 w-5" />
+                            Decline
+                          </button>
                         </div>
-                        
-                        <div className="flex items-center gap-3 p-4 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-                           <ShieldCheckIcon className="h-5 w-5 text-emerald-500" />
-                           <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tighter">Identity Verified on Upload</p>
-                        </div>
-                     </div>
-                   </div>
-
-                   <div className="p-8 bg-stone-50 dark:bg-stone-950/20 border-t border-stone-100 dark:border-stone-800 grid gap-4">
-                     <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleApprove(selectedProvider._id)}
-                        className="w-full py-5 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-3"
-                     >
-                       <CheckCircleIcon className="h-5 w-5" /> Approve Provider
-                     </motion.button>
-                     <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleReject(selectedProvider._id)}
-                        className="w-full py-5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 font-black uppercase tracking-widest text-[11px] hover:bg-rose-100 transition-all flex items-center justify-center gap-3 dark:bg-rose-900/10 dark:border-rose-900/30 dark:text-rose-400"
-                     >
-                       <XCircleIcon className="h-5 w-5" /> Reject Application
-                     </motion.button>
+                      </div>
                    </div>
                 </div>
               </div>

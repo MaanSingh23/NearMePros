@@ -114,22 +114,18 @@ function RevenueReports() {
   };
 
   const StatCard = ({ title, value, subtitle, icon: Icon, tone }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.3)]"
-    >
-      <div className="flex items-start justify-between">
+    <div className="rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
+          <p className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-widest">{title}</p>
+          <p className="mt-2 text-3xl sm:text-4xl font-black text-slate-900">{value}</p>
           <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
         </div>
-        <div className={`rounded-2xl p-3 ${tone}`}>
-          <Icon className="h-6 w-6" />
+        <div className={`rounded-xl sm:rounded-2xl p-3 sm:p-4 ${tone}`}>
+          <Icon className="h-6 w-6 sm:h-8 sm:w-8" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
   return (
@@ -148,21 +144,27 @@ function RevenueReports() {
           Back to Dashboard
         </Link>
       </div>
-      <div className="border-b border-slate-200/70 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-teal-600">Admin Panel</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-900">Revenue Reports</h1>
-            <p className="mt-1 text-sm text-slate-600">Track earnings with live revenue summaries and booking-based trends.</p>
+      <div className="border-b border-slate-200/70 bg-white/85 backdrop-blur mt-8">
+        <div className="mx-auto flex max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 w-full">
+            <div>
+              <p className="text-xs sm:text-sm font-medium uppercase tracking-[0.2em] text-emerald-600 mb-2">Finance Hub</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900">
+                Revenue <span className="text-emerald-600">Reports</span>
+              </h1>
+              <p className="mt-4 text-slate-500 text-sm sm:text-base font-medium max-w-xl">
+                Analyzing transaction volume and platform commission metrics.
+              </p>
+            </div>
+            <button
+              onClick={fetchRevenueReport}
+              disabled={loading}
+              className="group flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-3.5 text-xs font-bold text-white shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-50"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`} />
+              Refresh Data
+            </button>
           </div>
-          <button
-            onClick={fetchRevenueReport}
-            disabled={loading}
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <ArrowPathIcon className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
         </div>
       </div>
 
@@ -203,7 +205,7 @@ function RevenueReports() {
                   <h2 className="text-lg font-semibold text-slate-900">Monthly Revenue Trend</h2>
                   <p className="mt-1 text-sm text-slate-500">Revenue movement across months based on booking creation dates.</p>
                 </div>
-                <div className="h-[320px]">
+                <div className="h-[250px] sm:h-[320px]">
                   <Line data={monthlyChartData} options={chartOptions} />
                 </div>
               </div>
@@ -213,7 +215,7 @@ function RevenueReports() {
                   <h2 className="text-lg font-semibold text-slate-900">Revenue By Status</h2>
                   <p className="mt-1 text-sm text-slate-500">How revenue is distributed across active booking states.</p>
                 </div>
-                <div className="mx-auto h-[320px] max-w-[320px]">
+                <div className="mx-auto h-[250px] sm:h-[320px] max-w-[320px]">
                   <Doughnut data={statusChartData} options={chartOptions} />
                 </div>
               </div>
