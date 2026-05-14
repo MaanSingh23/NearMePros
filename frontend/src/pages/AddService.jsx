@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import {
   PhotoIcon,
@@ -19,7 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
+// Use the centralized api utility
 
 function AddService() {
   const navigate = useNavigate();
@@ -48,27 +49,29 @@ function AddService() {
 
   const checkProviderStatus = async (token) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/verification/status`, {
-        headers: { 'x-auth-token': token }
-      });
+      const response = await api.get('/verification/status');
       
       if (response.data.isVerified) {
         setVerificationStatus('approved');
       } else {
+        // If status is empty/null, default to pending which is now allowed
         setVerificationStatus(response.data.verificationStatus || 'pending');
       }
     } catch (error) {
        console.error('Verification check failed:', error);
-       toast.error('Failed to sync security status.');
+       // If the sync fails, we default to 'pending' which is allowed
+       // toast.error('Failed to sync security status.'); // Remove or silent toast to avoid panic
+       setVerificationStatus('pending'); 
     } finally {
-      // Ensure we always stop the loading state
       setIsCheckingStatus(false);
     }
   };
 
   const categories = [
-    'Salon for Women', 'Salon for Men', 'Home deep cleaning', 'Appliance Repair',
-    'Electrician & Plumbing', 'AC Repair', 'Pest Control', 'House Painting'
+    'Salon for Women', 'Salon for Men', 'Haircut & Styling', 'Facial & Skincare',
+    'Spa & Massage', 'Dance Classes', 'Beauty Services', 'Tailoring & Boutique',
+    'Cleaning Services', 'Plumbing', 'Electrical', 'Carpentry',
+    'AC & Appliance Repair', 'Painting', 'Pest Control', 'Moving', 'Other'
   ];
 
   const handleChange = (e) => {
@@ -91,8 +94,8 @@ function AddService() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (verificationStatus !== 'approved') {
-      toast.error('Security audit must be complete to list services.');
+    if (verificationStatus === 'rejected') {
+      toast.error('Security audit rejected. Please contact support.');
       return;
     }
     if (!formData.name || !formData.price || !formData.description) {
@@ -106,9 +109,8 @@ function AddService() {
       Object.keys(formData).forEach(key => serviceFormData.append(key, formData[key]));
       images.forEach(image => serviceFormData.append('images', image));
 
-      await axios.post(`${API_BASE_URL}/services`, serviceFormData, {
+      await api.post('/services', serviceFormData, {
         headers: {
-          'x-auth-token': token,
           'Content-Type': 'multipart/form-data'
         }
       });
@@ -132,17 +134,17 @@ function AddService() {
     );
   }
 
-  // 2. Gated State: Document Verification Required
-  if (verificationStatus !== 'approved') {
+  // 2. Gated State: Only block if status is EXPLICITLY rejected
+  if (verificationStatus === 'rejected') {
     return (
       <div className="min-h-screen bg-[#0c0a09] flex items-center justify-center p-6 bg-gradient-to-br from-stone-950 via-[#0c0a09] to-stone-950">
         <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-xl w-full bg-stone-900 border border-stone-800 rounded-[3rem] p-12 text-center shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
-          <div className="h-20 w-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-8 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-            <LockClosedIcon className="h-10 w-10 text-emerald-500" />
+          <div className="h-20 w-20 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-8 border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+            <XCircleIcon className="h-10 w-10 text-red-500" />
           </div>
-          <h2 className="text-3xl font-black text-white mb-4 tracking-tighter">Identity Audit Required.</h2>
-          <p className="text-stone-400 font-bold leading-relaxed mb-10">To maintain Nearify's quality standards, all professionals must pass a manual document audit before launching services.</p>
+          <h2 className="text-3xl font-black text-white mb-4 tracking-tighter">Audit Rejected.</h2>
+          <p className="text-stone-400 font-bold leading-relaxed mb-10">Your professional documents were not approved. Please contact support or re-upload your documents in the Protocol Center.</p>
           <div className="flex flex-col sm:flex-row gap-4">
              <Link to="/verification" className="flex-1 bg-emerald-500 text-stone-950 px-8 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-emerald-400 transition-all flex items-center justify-center gap-2">Protocol Center <ArrowRightIcon className="h-4 w-4" /></Link>
              <Link to="/provider/dashboard" className="flex-1 bg-stone-800 text-white px-8 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-stone-700 transition-all">Go Back</Link>

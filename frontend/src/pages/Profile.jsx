@@ -12,10 +12,11 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import api, { getUploadsUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || ''}/api`;
+// Use the centralized api utility
 
 function Profile() {
   const { user, updateUser } = useAuth();
@@ -69,9 +70,8 @@ function Profile() {
         payload.append('avatar', avatarFile);
       }
 
-      const response = await axios.put(`${API_BASE_URL}/users/profile`, payload, {
+      const response = await api.put('/users/profile', payload, {
         headers: {
-          'x-auth-token': localStorage.getItem('token'),
           'Content-Type': 'multipart/form-data'
         }
       });

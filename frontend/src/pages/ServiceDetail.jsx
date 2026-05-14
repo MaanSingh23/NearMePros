@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
-import api from '../utils/api';
+import api, { getUploadsUrl } from '../utils/api';
 import { motion } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -122,21 +122,10 @@ const ServiceDetail = () => {
     }
   };
 
-  // COMPLETE IMAGE URL FUNCTION - Handles all cases
-  const getImageUrl = (imagePath, index = 0) => {
+  // Use the centralized api utility helper
+  const getImageUrlLocal = (imagePath, index = 0) => {
     if (!imagePath) return fallbackImages[index % fallbackImages.length];
-    
-    let cleanPath = imagePath;
-    if (typeof cleanPath === 'string' && cleanPath.includes('localhost:5000')) {
-      cleanPath = cleanPath.split('uploads/').pop();
-    } else if (typeof cleanPath === 'string' && cleanPath.startsWith('http')) {
-      return cleanPath;
-    }
-
-    const defaultBaseUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://nearmepros.onrender.com';
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || defaultBaseUrl;
-    const finalPath = cleanPath.includes('uploads/') ? cleanPath.split('uploads/').pop() : cleanPath;
-    return `${baseUrl}/uploads/${finalPath.replace(/\\/g, '/')}`;
+    return getUploadsUrl(imagePath);
   };
 
   // Error handler for images
@@ -203,7 +192,7 @@ const ServiceDetail = () => {
             >
               <div className="relative h-[550px]">
                 <img
-                  src={getImageUrl(displayImages[selectedImage], selectedImage)}
+                  src={getImageUrlLocal(displayImages[selectedImage], selectedImage)}
                   alt={service.name}
                   className="w-full h-full object-cover object-top"
                   onError={(e) => handleImageError(e, selectedImage)}

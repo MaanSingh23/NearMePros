@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import api from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BriefcaseIcon,
@@ -16,7 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/services`;
+// Use the centralized api utility
 
 function ManageServices() {
   const [services, setServices] = useState([]);
@@ -31,9 +32,7 @@ function ManageServices() {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/provider`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get('/services/provider');
       setServices(response.data);
     } catch (error) {
       toast.error('Failed to load services catalogue');
@@ -46,9 +45,7 @@ function ManageServices() {
     if (!window.confirm('Are you sure you want to retire this service? This action is permanent.')) return;
     setDeleteLoading(id);
     try {
-      await axios.delete(`${API_BASE_URL}/${id}`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      await api.delete(`/services/${id}`);
       toast.success('Service successfully removed');
       setServices(services.filter(s => s._id !== id));
     } catch (error) {
@@ -126,7 +123,7 @@ function ManageServices() {
                     <div className="flex items-center gap-6">
                       <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border border-stone-100 dark:border-stone-800 shadow-lg">
                         <img 
-                          src={service.images?.[0] ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${service.images[0]}` : 'https://via.placeholder.com/150'} 
+                          src={service.images?.[0] ? getUploadsUrl(service.images[0]) : 'https://via.placeholder.com/150'} 
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-110" 
                           alt={service.name} 
                         />

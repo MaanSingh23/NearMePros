@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import api, { getUploadsUrl } from '../utils/api';
 import { motion } from 'framer-motion';
 import {
   CalendarIcon,
@@ -31,9 +32,7 @@ function Dashboard() {
 
   const fetchBookings = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bookings/my-bookings`, {
-        headers: { 'x-auth-token': localStorage.getItem('token') }
-      });
+      const response = await api.get('/bookings/my-bookings');
       setBookings(response.data);
       
       const statsObj = response.data.reduce((acc, booking) => {
@@ -131,7 +130,7 @@ function Dashboard() {
                   {bookings.slice(0, 5).map((booking) => (
                     <Link to={`/bookings/${booking._id}`} key={booking._id} className="group flex items-center justify-between rounded-2xl p-4 border border-stone-100 bg-stone-50 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-700">
                       <div className="flex items-center gap-4">
-                        <img src={booking.serviceId?.images?.[0] || 'https://via.placeholder.com/100'} alt="Service" className="h-16 w-16 rounded-xl object-cover shadow-sm group-hover:shadow-md transition" />
+                        <img src={booking.serviceId?.images?.[0] ? getUploadsUrl(booking.serviceId.images[0]) : 'https://via.placeholder.com/100'} alt="Service" className="h-16 w-16 rounded-xl object-cover shadow-sm group-hover:shadow-md transition" />
                         <div>
                           <h3 className="font-bold text-stone-900 dark:text-white">{booking.serviceId?.name || 'Service'}</h3>
                           <p className="text-sm font-medium text-stone-500">with {booking.providerId?.name || 'Provider'}</p>

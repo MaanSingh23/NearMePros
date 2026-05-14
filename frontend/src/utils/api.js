@@ -56,4 +56,13 @@ api.interceptors.response.use(
   }
 );
 
+export const getUploadsUrl = (imagePath) => {
+  if (!imagePath) return '';
+  if (typeof imagePath === 'string' && imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  const baseUrl = API_URL.replace('/api', '');
+  return `${baseUrl}/uploads/${imagePath.replace(/\\/g, '/')}`;
+};
+
 export default api;

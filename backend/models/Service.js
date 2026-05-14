@@ -27,10 +27,7 @@ const serviceSchema = new mongoose.Schema({
       'Electrical',
       'Carpentry',
       'AC & Appliance Repair',
-      'Cleaning',
       'Painting',
-      'AC Repair',
-      'Appliance Repair',
       'Pest Control',
       'Moving',
       'Other'

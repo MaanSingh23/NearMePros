@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import api from '../utils/api';
 import { motion } from 'framer-motion';
 import {
   PhotoIcon,
@@ -18,7 +19,7 @@ import {
 import { StarIcon } from '@heroicons/react/24/solid';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/services`;
+// Use the centralized api utility
 
 function EditService() {
   const { id } = useParams();
@@ -40,7 +41,7 @@ function EditService() {
 
   const fetchServiceDetails = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/${id}`);
+      const response = await api.get(`/services/${id}`);
       const service = response.data;
       setFormData({
         name: service.name,
@@ -58,8 +59,10 @@ function EditService() {
   };
 
   const categories = [
-    'Salon for Women', 'Salon for Men', 'Home deep cleaning', 'Appliance Repair',
-    'Electrician & Plumbing', 'AC Repair', 'Pest Control', 'House Painting'
+    'Salon for Women', 'Salon for Men', 'Haircut & Styling', 'Facial & Skincare',
+    'Spa & Massage', 'Dance Classes', 'Beauty Services', 'Tailoring & Boutique',
+    'Cleaning Services', 'Plumbing', 'Electrical', 'Carpentry',
+    'AC & Appliance Repair', 'Painting', 'Pest Control', 'Moving', 'Other'
   ];
 
   const handleChange = (e) => {
@@ -93,9 +96,8 @@ function EditService() {
       // Append new images
       images.forEach(image => editFormData.append('images', image));
 
-      await axios.put(`${API_BASE_URL}/${id}`, editFormData, {
+      await api.put(`/services/${id}`, editFormData, {
         headers: {
-          'x-auth-token': localStorage.getItem('token'),
           'Content-Type': 'multipart/form-data'
         }
       });
@@ -232,7 +234,7 @@ function EditService() {
                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     {existingImages.map((img, index) => (
                       <div key={`existing-${index}`} className="relative group rounded-2xl overflow-hidden aspect-square border border-white/10">
-                        <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${img}`} className="w-full h-full object-cover" />
+                        <img src={getUploadsUrl(img)} className="w-full h-full object-cover" />
                         <button type="button" onClick={() => removeExistingImage(index)} className="absolute inset-0 bg-red-600/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-black uppercase tracking-tighter">
                           Remove
                         </button>
@@ -286,7 +288,7 @@ function EditService() {
                 <div className="relative h-64 bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
                    {(images.length > 0 || existingImages.length > 0) ? (
                      <img 
-                       src={images.length > 0 ? URL.createObjectURL(images[0]) : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${existingImages[0]}`} 
+                       src={images.length > 0 ? URL.createObjectURL(images[0]) : getUploadsUrl(existingImages[0])} 
                        className="w-full h-full object-cover" 
                      />
                    ) : (

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import api, { getUploadsUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import {
@@ -15,12 +16,10 @@ import {
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-const getImageUrl = (imagePath) => {
+// Use the centralized api utility instead of local helpers
+const getLocalImageUrl = (imagePath) => {
   if (!imagePath) return 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400';
-  if (imagePath.startsWith('http')) return imagePath;
-  return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${imagePath}`;
+  return getUploadsUrl(imagePath);
 };
 
 const StarRating = ({ value, onChange, readOnly = false, size = 'h-8 w-8' }) => (
@@ -63,10 +62,9 @@ function CustomerReviews() {
   const fetchReviewData = async () => {
     setLoading(true);
     try {
-      const headers = { 'x-auth-token': token };
       const [bookingsResponse, reviewsResponse] = await Promise.all([
-        axios.get(`${API_URL}/reviews/reviewable-bookings`, { headers }),
-        axios.get(`${API_URL}/reviews/my-reviews`, { headers })
+        api.get('/reviews/reviewable-bookings'),
+        api.get('/reviews/my-reviews')
       ]);
       setBookings(bookingsResponse.data);
       setReviews(reviewsResponse.data);
@@ -104,14 +102,13 @@ function CustomerReviews() {
     if (!formData.rating) return toast.error('Please select a rating');
     setSubmitting(true);
     try {
-      const headers = { 'x-auth-token': token };
       const payload = { rating: formData.rating, comment: formData.comment.trim() };
 
       if (selectedReview) {
-        await axios.put(`${API_URL}/reviews/${selectedReview._id}`, payload, { headers });
+        await api.put(`/reviews/${selectedReview._id}`, payload);
         toast.success('Review updated successfully');
       } else {
-        await axios.post(`${API_URL}/reviews`, { ...payload, bookingId: selectedBooking._id }, { headers });
+        await api.post('/reviews', { ...payload, bookingId: selectedBooking._id });
         toast.success('Thank you for rating this provider');
       }
       closeModal();
@@ -126,7 +123,7 @@ function CustomerReviews() {
   const deleteReview = async (reviewId) => {
     if (!window.confirm('Delete this review? This will update the provider rating.')) return;
     try {
-      await axios.delete(`${API_URL}/reviews/${reviewId}`, { headers: { 'x-auth-token': token } });
+      await api.delete(`/reviews/${reviewId}`);
       toast.success('Review deleted');
       fetchReviewData();
     } catch (error) {
@@ -311,7 +308,7 @@ function BookingReviewCard({ booking, onRate, reviewed = false }) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm dark:border-stone-800 dark:bg-stone-900/50">
-      <img src={getImageUrl(service.images?.[0])} alt={service.name} className="h-48 w-full object-cover sm:h-auto sm:w-48" />
+      <img src={getLocalImageUrl(service.images?.[0])} alt={service.name} className="h-48 w-full object-cover sm:h-auto sm:w-48" />
       <div className="flex flex-1 flex-col p-6">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-primary-600 dark:text-primary-500 mb-1">{service.category}</p>

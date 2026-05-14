@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../utils/api';
+import api, { getUploadsUrl } from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -266,9 +266,7 @@ function ProviderVerifications() {
                      <div className="group relative rounded-2xl sm:rounded-[2rem] overflow-hidden border-4 border-white shadow-xl dark:border-stone-800">
                         {selectedProvider.verificationDocs?.identityDocs?.find(d => d.docType === 'aadhar')?.url ? (
                           <img 
-                            src={selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url.startsWith('http') 
-                              ? selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url 
-                              : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url}`} 
+                            src={getUploadsUrl(selectedProvider.verificationDocs.identityDocs.find(d => d.docType === 'aadhar').url)} 
                             className="w-full h-auto min-h-[250px] object-cover" 
                             alt="Aadhar Card" 
                           />

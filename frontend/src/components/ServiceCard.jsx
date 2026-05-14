@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { StarIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/solid';
 import { ArrowRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { getUploadsUrl } from '../utils/api';
 
 function ServiceCard({ service }) {
   const { _id, name, category, description, price, priceType, rating, totalReviews, providerId, images, isVerified } = service;
@@ -14,26 +15,8 @@ function ServiceCard({ service }) {
 
   const fallbackIndex = _id ? _id.length % fallbackImages.length : 0;
 
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return fallbackImages[fallbackIndex];
-    
-    // If the backend returns a localhost URL, we MUST replace it with the live Render URL
-    let cleanPath = imagePath;
-    if (typeof cleanPath === 'string' && cleanPath.includes('localhost:5000')) {
-      cleanPath = cleanPath.split('uploads/').pop();
-    } else if (typeof cleanPath === 'string' && cleanPath.startsWith('http')) {
-      return cleanPath;
-    }
-
-    const defaultBaseUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://nearmepros.onrender.com';
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || defaultBaseUrl;
-    // Ensure we don't have double 'uploads/' and fix backslashes
-    const finalPath = cleanPath.includes('uploads/') ? cleanPath.split('uploads/').pop() : cleanPath;
-    return `${baseUrl}/uploads/${finalPath.replace(/\\/g, '/')}`;
-  };
-
   const serviceImage = images && images.length > 0 
-    ? getImageUrl(images[0])
+    ? getUploadsUrl(images[0])
     : fallbackImages[fallbackIndex];
 
   return (

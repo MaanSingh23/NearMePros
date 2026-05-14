@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import api from '../utils/api';
 import { motion } from 'framer-motion';
 import {
   ChartBarIcon,
@@ -16,7 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}`;
+// Use the centralized api utility
 
 function ProviderAnalytics() {
   const navigate = useNavigate();
@@ -32,22 +33,13 @@ function ProviderAnalytics() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    fetchAnalytics(token);
+    fetchAnalytics();
   }, [navigate]);
 
-  const fetchAnalytics = async (token) => {
+  const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/bookings/provider-bookings`, {
-        headers: { 'x-auth-token': token }
-      }).catch(() => axios.get(`${API_BASE_URL}/provider/bookings`, { 
-        headers: { 'x-auth-token': token } 
-      }));
+      const response = await api.get('/bookings/provider-bookings').catch(() => api.get('/provider/bookings'));
       
       const bookingsArray = Array.isArray(response.data) ? response.data : (response.data.bookings || []);
       

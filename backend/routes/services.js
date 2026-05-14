@@ -175,7 +175,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res) => {
         coordinates: [75.8573, 30.9010],
         address: 'Ludhiana, Punjab, India'
       },
-      isVerified: provider.isVerified || false
+      isVerified: true // Set to true by default for immediate visibility
     });
 
     await service.save();
