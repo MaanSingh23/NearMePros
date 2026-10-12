@@ -37,7 +37,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://singh:maan@ac-xc8wjap-shard-00-00.ezjun3u.mongodb.net:27017,ac-xc8wjap-shard-00-01.ezjun3u.mongodb.net:27017,ac-xc8wjap-shard-00-02.ezjun3u.mongodb.net:27017/localservice?ssl=true&replicaSet=atlas-pijlws-shard-0&authSource=admin&retryWrites=true&w=majority', {
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+if (!mongoUri) {
+  console.error('❌ MONGO_URI is not set. Add it to backend/.env (or the environment variables on Render).');
+  process.exit(1);
+}
+
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
