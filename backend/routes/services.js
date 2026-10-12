@@ -38,6 +38,24 @@ const uploadImages = (req, res, next) => {
   });
 };
 
+// Upload all files to ImageKit and return their URLs.
+// Throws (instead of silently dropping photos) if any upload fails.
+const uploadFiles = async (files = []) => {
+  const urls = [];
+  for (const file of files) {
+    try {
+      const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
+      urls.push(ikResponse.url);
+    } catch (uploadError) {
+      console.error('Error uploading to ImageKit:', uploadError);
+      const err = new Error(`Could not upload "${file.originalname}". Please try again.`);
+      err.status = 502;
+      throw err;
+    }
+  }
+  return urls;
+};
+
 // Get nearby services
 router.get('/nearby', async (req, res) => {
   try {
@@ -140,19 +158,8 @@ router.post('/', auth, uploadImages, async (req, res) => {
       return res.status(404).json({ message: 'Provider not found' });
     }
 
-    // Upload images to ImageKit
-    const images = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
-          images.push(ikResponse.url); // Store the full cloud URL
-        } catch (uploadError) {
-          console.error('Error uploading to ImageKit:', uploadError);
-          // Continue with other files or skip
-        }
-      }
-    }
+    // Upload images to ImageKit (stores full cloud URLs)
+    const images = await uploadFiles(req.files);
 
     // Parse availability if it's a string
     let parsedAvailability = availability;
@@ -180,13 +187,17 @@ router.post('/', auth, uploadImages, async (req, res) => {
       description,
       price: parseFloat(price),
       priceType,
-      images, // Now stores just filenames
+      images,
       availability: parsedAvailability,
-      location: provider.location || {
-        type: 'Point',
-        coordinates: [75.8573, 30.9010],
-        address: 'Ludhiana, Punjab, India'
-      },
+      // Fall back to Ludhiana if the provider has no valid coordinates,
+      // otherwise the 2dsphere index rejects the save
+      location: provider.location?.coordinates?.length === 2
+        ? provider.location
+        : {
+            type: 'Point',
+            coordinates: [75.8573, 30.9010],
+            address: 'Ludhiana, Punjab, India'
+          },
       isVerified: true // Set to true by default for immediate visibility
     });
 
@@ -196,7 +207,7 @@ router.post('/', auth, uploadImages, async (req, res) => {
     res.status(201).json(service);
   } catch (error) {
     console.error('Error creating service:', error);
-    res.status(500).json({ message: error.message || 'Server error while creating service' });
+    res.status(error.status || 500).json({ message: error.message || 'Server error while creating service' });
   }
 });
 
@@ -235,23 +246,24 @@ router.put('/:id', auth, uploadImages, async (req, res) => {
       }
     }
     
-    // Add new images if uploaded to ImageKit
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          const ikResponse = await uploadToImageKit(file.buffer, file.originalname);
-          service.images.push(ikResponse.url); // Store full cloud URL
-        } catch (uploadError) {
-          console.error('Error uploading to ImageKit:', uploadError);
-        }
+    // Keep only the existing images the provider didn't remove
+    if (req.body.existingImages) {
+      try {
+        const keep = JSON.parse(req.body.existingImages);
+        service.images = service.images.filter(img => keep.includes(img));
+      } catch (e) {
+        console.error('Error parsing existingImages:', e);
       }
     }
+
+    // Add new images uploaded to ImageKit
+    service.images.push(...await uploadFiles(req.files));
 
     await service.save();
     res.json(service);
   } catch (error) {
     console.error('Error updating service:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(error.status || 500).json({ message: error.message || 'Server error' });
   }
 });
 
