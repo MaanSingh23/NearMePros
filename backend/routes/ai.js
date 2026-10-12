@@ -4,7 +4,7 @@ const Service = require('../models/Service');
 
 // Gemini is used when GEMINI_API_KEY is set; otherwise (or if Gemini fails)
 // the rule-based engine below answers, so customers always get a reply.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY = 10;
 const SEARCH_RADIUS_KM = 25;
@@ -356,7 +356,7 @@ const geminiReply = async ({ message, history, lat, lng, area }) => {
         contents: toGeminiContents(history, message),
         generationConfig
       }),
-      signal: AbortSignal.timeout(15000)
+      signal: AbortSignal.timeout(8000)
     }
   );
 
