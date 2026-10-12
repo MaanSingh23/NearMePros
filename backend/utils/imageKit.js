@@ -1,11 +1,29 @@
 const ImageKit = require('imagekit');
 require('dotenv').config();
 
-const imagekit = new ImageKit({
-    publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT
-});
+// Created on first use so a missing key only breaks uploads,
+// not the whole server at startup
+let imagekit = null;
+
+const getImageKit = () => {
+    if (imagekit) return imagekit;
+
+    const { IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY, IMAGEKIT_URL_ENDPOINT } = process.env;
+    if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY || !IMAGEKIT_URL_ENDPOINT) {
+        throw new Error('ImageKit is not configured. Set IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY and IMAGEKIT_URL_ENDPOINT.');
+    }
+
+    imagekit = new ImageKit({
+        publicKey: IMAGEKIT_PUBLIC_KEY,
+        privateKey: IMAGEKIT_PRIVATE_KEY,
+        urlEndpoint: IMAGEKIT_URL_ENDPOINT
+    });
+    return imagekit;
+};
+
+if (!process.env.IMAGEKIT_PUBLIC_KEY || !process.env.IMAGEKIT_PRIVATE_KEY || !process.env.IMAGEKIT_URL_ENDPOINT) {
+    console.warn('⚠️  ImageKit keys are missing - image uploads will fail until they are set.');
+}
 
 /**
  * Uploads a file to ImageKit
@@ -15,7 +33,7 @@ const imagekit = new ImageKit({
  */
 const uploadToImageKit = async (fileBuffer, fileName) => {
     try {
-        const response = await imagekit.upload({
+        const response = await getImageKit().upload({
             file: fileBuffer, // required
             fileName: fileName, // required
             folder: '/services'
@@ -28,6 +46,6 @@ const uploadToImageKit = async (fileBuffer, fileName) => {
 };
 
 module.exports = {
-    imagekit,
+    getImageKit,
     uploadToImageKit
 };
