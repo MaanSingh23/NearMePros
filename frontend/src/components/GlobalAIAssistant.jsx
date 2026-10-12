@@ -1,528 +1,804 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  XMarkIcon, 
+import {
+  XMarkIcon,
   PaperAirplaneIcon,
   SparklesIcon,
-  ChatBubbleLeftRightIcon,
-  PhoneIcon
+  PhoneIcon,
+  MicrophoneIcon,
+  ArrowPathIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  PhotoIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon, MapPinIcon } from '@heroicons/react/24/solid';
-import { MicrophoneIcon } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../context/LocationContext';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import api, { getUploadsUrl } from '../utils/api';
+
+const STORAGE_KEY = 'nmp-assistant-chat';
+const TEASER_KEY = 'nmp-assistant-teaser-seen';
+const MAX_INPUT = 1000;
+
+const quickCategories = [
+  { emoji: '❄️', label: 'AC Repair', prompt: 'I need AC repair' },
+  { emoji: '🔧', label: 'Plumber', prompt: 'I need a plumber' },
+  { emoji: '⚡', label: 'Electrician', prompt: 'I need an electrician' },
+  { emoji: '🧹', label: 'Cleaning', prompt: 'I need house cleaning' },
+  { emoji: '💇', label: 'Haircut', prompt: 'I want a haircut' },
+  { emoji: '💄', label: 'Beauty', prompt: 'Beauty and makeup services' }
+];
+
+const helpTopics = [
+  'How does booking work?',
+  'Can I cancel a booking?',
+  'Is payment taken online?'
+];
+
+// Suggestion chips that should navigate instead of sending a message
+const chipRoutes = {
+  'browse services': '/services',
+  'my bookings': '/bookings'
+};
+
+const greeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const formatTime = (timestamp) =>
+  new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+const loadMessages = () => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+};
+
+// Renders **bold** and "- " bullet lists as React elements (no raw HTML)
+const renderInline = (text) =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i} className="font-bold text-stone-900 dark:text-white">{part.slice(2, -2)}</strong>
+      : <React.Fragment key={i}>{part}</React.Fragment>
+  );
+
+const FormattedText = ({ text }) => {
+  const blocks = [];
+  let list = null;
+  text.split('\n').forEach((line, i) => {
+    const bullet = line.match(/^\s*[-*•]\s+(.*)/);
+    if (bullet) {
+      if (!list) {
+        list = [];
+        blocks.push({ type: 'list', items: list, key: i });
+      }
+      list.push(bullet[1]);
+    } else {
+      list = null;
+      if (line.trim()) blocks.push({ type: 'p', text: line, key: i });
+    }
+  });
+
+  return (
+    <div className="space-y-2">
+      {blocks.map(block =>
+        block.type === 'list' ? (
+          <ul key={block.key} className="space-y-1.5">
+            {block.items.map((item, j) => (
+              <li key={j} className="flex gap-2">
+                <span className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500" />
+                <span>{renderInline(item)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={block.key}>{renderInline(block.text)}</p>
+        )
+      )}
+    </div>
+  );
+};
+
+const AssistantAvatar = ({ size = 'sm' }) => (
+  <div className={`${size === 'sm' ? 'h-7 w-7' : 'h-11 w-11'} shrink-0 rounded-full bg-gradient-to-br from-primary-500 to-emerald-700 flex items-center justify-center shadow-sm`}>
+    <SparklesIcon className={`${size === 'sm' ? 'h-4 w-4' : 'h-6 w-6'} text-white`} />
+  </div>
+);
+
+const ServiceResultCard = ({ service, onNavigate }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const image = service.images?.[0] ? getUploadsUrl(service.images[0]) : null;
+
+  return (
+    <div className="flex gap-3 rounded-2xl border border-stone-200 bg-white p-2.5 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-stone-700 dark:bg-stone-800 dark:hover:border-primary-700">
+      <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-700">
+        {image && !imageFailed ? (
+          <img src={image} alt={service.name} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-stone-400">
+            <PhotoIcon className="h-7 w-7" />
+          </div>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-between">
+        <div>
+          <p className="truncate text-[13px] font-bold text-stone-900 dark:text-white">{service.name}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+            <span className="flex items-center gap-0.5">
+              <StarIcon className="h-3 w-3 text-amber-400" />
+              {service.rating > 0 ? service.rating.toFixed(1) : 'New'}
+              {service.totalReviews > 0 && <span className="font-medium">({service.totalReviews})</span>}
+            </span>
+            {service.distanceKm != null && (
+              <span className="flex items-center gap-0.5">
+                <MapPinIcon className="h-3 w-3 text-stone-400" />
+                {service.distanceKm} km
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <p className="text-sm font-black text-stone-900 dark:text-white">
+            ₹{service.price}
+            <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+              {service.priceType === 'hourly' ? '/hr' : ' fixed'}
+            </span>
+          </p>
+          <Link
+            to={`/service/${service._id}`}
+            onClick={onNavigate}
+            className="rounded-full bg-primary-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-700"
+          >
+            Book
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const GlobalAIAssistant = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Hello! I'm the NearMe Pros AI Assistant. Looking for a service? Just tell me what you need! (e.g. 'I need an AC repair' or 'Find me a plumber')",
-      sender: 'ai',
-      services: null
-    }
-  ]);
+  const navigate = useNavigate();
   const { location } = useLocation();
+  const { user } = useAuth();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState(loadMessages);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [showTeaser, setShowTeaser] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [showScrollDown, setShowScrollDown] = useState(false);
 
-  // --- Voice Call Mode States ---
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // Voice call mode
   const [isCallMode, setIsCallMode] = useState(false);
   const [callStatus, setCallStatus] = useState('');
   const [callText, setCallText] = useState('');
-  const recognitionRef = useRef(null);
-  const synthRef = useRef(window.speechSynthesis);
+  const callActiveRef = useRef(false);
+  const callRecognitionRef = useRef(null);
 
-  const quickReplies = [
-    "AC Repair",
-    "Plumbing Issue",
-    "House Cleaning",
-    "Haircut at home"
-  ];
+  const firstName = user?.name?.split(' ')[0];
+  const hasConversation = messages.length > 0;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Persist the conversation for this browser tab
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)));
+    } catch {
+      // Storage unavailable (private mode) - chat still works
+    }
+  }, [messages]);
 
-  // Clean up on unmount
+  // Show a one-time teaser bubble next to the launcher
   useEffect(() => {
-    return () => {
-      if (recognitionRef.current) recognitionRef.current.stop();
-      if (synthRef.current) synthRef.current.cancel();
-    };
+    let seen = false;
+    try {
+      seen = localStorage.getItem(TEASER_KEY) === '1';
+    } catch {
+      seen = false;
+    }
+    if (seen) return;
+    const timer = setTimeout(() => setShowTeaser(true), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
-  const playPopSound = (type = 'send') => {
+  const dismissTeaser = () => {
+    setShowTeaser(false);
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      if (type === 'send') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(300, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.1);
-      } else {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(500, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.15);
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.15);
-      }
-    } catch (e) {
-      console.log('Audio playback prevented by browser');
+      localStorage.setItem(TEASER_KEY, '1');
+    } catch {
+      // ignore
     }
   };
 
-  const processMessage = async (msgText) => {
-    if (!msgText.trim()) return;
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
 
-    const userMessage = {
-      id: Date.now(),
-      text: msgText,
-      sender: 'user'
+  useEffect(() => {
+    if (isOpen) scrollToBottom();
+  }, [messages, isTyping, isOpen, scrollToBottom]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    const onKey = (e) => e.key === 'Escape' && setIsOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', onKey);
     };
+  }, [isOpen]);
 
-    setMessages(prev => [...prev, userMessage]);
-    playPopSound('send');
+  // Auto-grow the textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+    callRecognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+  }, []);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 120);
+  };
+
+  const openChat = () => {
+    dismissTeaser();
+    setIsOpen(true);
+  };
+
+  const buildHistory = (list) =>
+    list
+      .filter(m => !m.isError)
+      .slice(-10)
+      .map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text }));
+
+  const askAssistant = async (text, history) => {
+    const response = await api.post('/ai/chat', {
+      message: text,
+      history,
+      lat: location?.lat ?? null,
+      lng: location?.lng ?? null,
+      area: location?.address || ''
+    });
+    return response.data;
+  };
+
+  const sendMessage = async (rawText) => {
+    const text = rawText.trim().slice(0, MAX_INPUT);
+    if (!text || isTyping) return;
+
+    const history = buildHistory(messages);
+    const userMessage = { id: Date.now(), sender: 'user', text, time: Date.now() };
+    setMessages(prev => [...prev.filter(m => !m.isError), userMessage]);
     setIsTyping(true);
 
     try {
-      const payload = {
-        message: msgText,
-        lat: location?.lat || null,
-        lng: location?.lng || null
-      };
-
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, payload);
-      
-      const aiResponse = {
-        id: Date.now() + 1,
-        text: response.data.reply,
-        sender: 'ai',
-        services: response.data.services
-      };
-
-      setMessages(prev => [...prev, aiResponse]);
-      playPopSound('receive');
-    } catch (error) {
-      console.error('Error with AI Assistant:', error);
+      const data = await askAssistant(text, history);
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
-        text: "I'm having a little trouble connecting right now. Please try again later!",
-        sender: 'ai'
+        sender: 'ai',
+        text: data.reply,
+        services: data.services || [],
+        suggestions: data.suggestions || [],
+        time: Date.now()
+      }]);
+    } catch (error) {
+      const serverMessage = error.response?.data?.error;
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        sender: 'ai',
+        isError: true,
+        retryText: text,
+        text: serverMessage || "I couldn't reach the server. If the site was idle it may be waking up — please try again in a few seconds.",
+        time: Date.now()
       }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  const handleSend = async (e) => {
+  const retry = (text) => {
+    setMessages(prev => {
+      // Drop the failed exchange so it can be sent again cleanly
+      const withoutError = prev.filter(m => !m.isError);
+      const last = withoutError[withoutError.length - 1];
+      return last?.sender === 'user' && last.text === text ? withoutError.slice(0, -1) : withoutError;
+    });
+    setTimeout(() => sendMessage(text), 0);
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const currentInput = input;
+    const text = input;
     setInput('');
-    await processMessage(currentInput);
+    sendMessage(text);
   };
 
-  const handleQuickReply = (reply) => {
-    processMessage(reply);
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
-  const toggleVoiceSearch = () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("Voice search is not supported in your browser. Please try Chrome.");
+  const handleChip = (chip) => {
+    const route = chipRoutes[chip.toLowerCase()];
+    if (route) {
+      setIsOpen(false);
+      navigate(route);
+    } else {
+      sendMessage(chip);
+    }
+  };
+
+  const newConversation = () => {
+    setMessages([]);
+    setInput('');
+  };
+
+  const copyMessage = async (msg) => {
+    try {
+      await navigator.clipboard.writeText(msg.text.replace(/\*\*/g, ''));
+      setCopiedId(msg.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Clipboard blocked - ignore
+    }
+  };
+
+  // --- Voice input (dictation) ---
+  const getRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    return SpeechRecognition ? new SpeechRecognition() : null;
+  };
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
       return;
     }
-
-    const recognition = new window.webkitSpeechRecognition();
+    const recognition = getRecognition();
+    if (!recognition) {
+      setMessages(prev => [...prev, {
+        id: Date.now(), sender: 'ai', isError: true, time: Date.now(),
+        text: 'Voice input isn\'t supported in this browser. Please try Google Chrome.'
+      }]);
+      return;
+    }
     recognition.lang = 'en-IN';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      setIsListening(true);
+    recognition.interimResults = true;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+      setInput(transcript);
+      if (event.results[event.results.length - 1].isFinal) {
+        setInput('');
+        sendMessage(transcript);
+      }
     };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  // --- Voice call mode ---
+  const endCall = () => {
+    callActiveRef.current = false;
+    callRecognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    setIsCallMode(false);
+    setCallStatus('');
+  };
+
+  const listenInCall = () => {
+    if (!callActiveRef.current) return;
+    window.speechSynthesis?.cancel();
+    setCallStatus('Listening');
+    setCallText('Go ahead, I\'m listening…');
+
+    const recognition = getRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = true;
+    callRecognitionRef.current = recognition;
+    let finalHeard = false;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      processMessage(transcript);
+      const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+      setCallText(transcript);
+      if (event.results[event.results.length - 1].isFinal) {
+        finalHeard = true;
+        recognition.stop();
+        answerInCall(transcript);
+      }
     };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-    };
-
     recognition.onend = () => {
-      setIsListening(false);
+      // Silence: keep the line open
+      if (!finalHeard && callActiveRef.current) setTimeout(listenInCall, 400);
     };
-
-    if (isListening) {
-      recognition.stop();
-    } else {
+    recognition.onerror = () => {};
+    try {
       recognition.start();
+    } catch {
+      // already started
     }
   };
 
-  // --- Voice Call Mode Functions ---
-  const endCall = () => {
-    setIsCallMode(false);
-    setCallStatus('');
-    if (recognitionRef.current) recognitionRef.current.stop();
-    if (synthRef.current) synthRef.current.cancel();
+  const answerInCall = async (transcript) => {
+    if (!callActiveRef.current) return;
+    setCallStatus('Thinking');
+    try {
+      const data = await askAssistant(transcript, buildHistory(messages));
+      if (!callActiveRef.current) return;
+      const spoken = data.reply.replace(/\*\*/g, '').replace(/^\s*[-*•]\s+/gm, '');
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now(), sender: 'user', text: transcript, time: Date.now() },
+        { id: Date.now() + 1, sender: 'ai', text: data.reply, services: data.services || [], suggestions: data.suggestions || [], time: Date.now() }
+      ]);
+      setCallStatus('Speaking');
+      setCallText(spoken);
+      const utterance = new SpeechSynthesisUtterance(spoken);
+      utterance.lang = 'en-IN';
+      utterance.onend = () => setTimeout(listenInCall, 500);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setCallStatus('Reconnecting');
+      setCallText('Connection lost. Trying again…');
+      setTimeout(listenInCall, 2000);
+    }
   };
 
   const startCall = () => {
-    if (!('webkitSpeechRecognition' in window) || !('speechSynthesis' in window)) {
-      alert("Voice Call AI is not fully supported in your browser. Try Chrome.");
+    if (!getRecognition() || !('speechSynthesis' in window)) {
+      setMessages(prev => [...prev, {
+        id: Date.now(), sender: 'ai', isError: true, time: Date.now(),
+        text: 'Voice calls aren\'t supported in this browser. Please try Google Chrome.'
+      }]);
       return;
     }
-    setIsOpen(false);
+    callActiveRef.current = true;
     setIsCallMode(true);
-    setCallStatus('Connecting...');
-    setCallText('Establishing secure line to Pro Assistant...');
-    
-    setTimeout(() => {
-      startListeningPhase();
-    }, 1500);
+    setCallStatus('Connecting');
+    setCallText('Connecting you to Pro Assistant…');
+    setTimeout(listenInCall, 1200);
   };
 
-  const startListeningPhase = () => {
-    if (synthRef.current) synthRef.current.cancel();
-    setCallStatus('Listening...');
-    setCallText('Speak now...');
-
-    const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = 'en-IN';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognitionRef.current = recognition;
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map(res => res[0].transcript)
-        .join('');
-      setCallText(transcript);
-      
-      if (event.results[0].isFinal) {
-        recognition.stop();
-        processCallMessage(transcript);
-      }
-    };
-
-    recognition.onerror = () => {
-      setCallStatus('Error');
-      setCallText('Could not hear you properly. Retrying...');
-      setTimeout(startListeningPhase, 2000);
-    };
-
-    recognition.onend = () => {
-      // If it ends without final result and status is still listening, restart it
-      if (callStatus === 'Listening...') {
-         // Prevent infinite loop if stopped manually
-      }
-    };
-
-    try {
-      recognition.start();
-    } catch (e) {}
-  };
-
-  const processCallMessage = async (transcript) => {
-    setCallStatus('AI is thinking...');
-    
-    try {
-      const payload = {
-        message: transcript,
-        lat: location?.lat || null,
-        lng: location?.lng || null
-      };
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, payload);
-      
-      const textResponse = response.data.reply.replace(/\*\*(.*?)\*\*/g, '$1'); // Clean markdown
-      
-      setCallStatus('AI Speaking...');
-      setCallText(textResponse);
-      
-      const utterance = new SpeechSynthesisUtterance(textResponse);
-      utterance.lang = 'en-IN';
-      utterance.pitch = 1;
-      utterance.rate = 1;
-      
-      utterance.onend = () => {
-        // Start listening again if still in call mode
-        setCallStatus('Reconnecting...');
-        setTimeout(() => {
-           startListeningPhase();
-        }, 1000);
-      };
-
-      synthRef.current.speak(utterance);
-
-    } catch (e) {
-      setCallStatus('Network Error');
-      setCallText('Lost connection. Trying to reconnect...');
-      setTimeout(startListeningPhase, 2000);
-    }
-  };
+  const lastAiId = [...messages].reverse().find(m => m.sender === 'ai' && !m.isError)?.id;
 
   return (
     <>
-      {/* Voice Call Overlay UI */}
+      {/* Voice call overlay */}
       <AnimatePresence>
         {isCallMode && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-stone-900/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center"
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-stone-950/95 p-6 text-center backdrop-blur-2xl"
           >
-            <div className="flex flex-col items-center max-w-md w-full">
-              <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Pro Assistant</h2>
-              <p className={`text-sm font-bold uppercase tracking-widest ${callStatus === 'Listening...' ? 'text-green-400' : 'text-indigo-400'} mb-12`}>
-                {callStatus}
-              </p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-stone-500">Voice call</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-white">Pro Assistant</h2>
+            <p className={`mt-2 text-sm font-bold ${callStatus === 'Listening' ? 'text-primary-400' : 'text-stone-400'}`}>
+              {callStatus}{callStatus !== 'Speaking' && callStatus !== 'Listening' ? '…' : ''}
+            </p>
 
-              {/* Pulsing Avatar/Wave */}
-              <div className="relative w-40 h-40 flex items-center justify-center mb-12">
-                {(callStatus === 'Listening...' || callStatus === 'AI Speaking...') && (
-                  <>
-                    <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
-                    <div className="absolute inset-0 bg-purple-500 rounded-full animate-ping opacity-20 animation-delay-500"></div>
-                  </>
-                )}
-                <div className="relative w-28 h-28 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-2xl shadow-indigo-500/50">
-                  <SparklesIcon className="w-12 h-12 text-white" />
-                </div>
+            <div className="relative my-14 flex h-40 w-40 items-center justify-center">
+              {(callStatus === 'Listening' || callStatus === 'Speaking') && (
+                <>
+                  <span className="absolute inset-0 animate-ping rounded-full bg-primary-500/20" />
+                  <span className="absolute inset-4 animate-pulse rounded-full bg-primary-500/20" />
+                </>
+              )}
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-emerald-700 shadow-2xl shadow-primary-500/40">
+                <SparklesIcon className="h-12 w-12 text-white" />
               </div>
-
-              {/* Real-time transcript */}
-              <div className="h-32 flex items-center justify-center w-full mb-12">
-                <p className="text-xl md:text-2xl font-medium text-stone-300 leading-relaxed max-w-lg">
-                  {callText}
-                </p>
-              </div>
-
-              {/* End Call Button */}
-              <button 
-                onClick={endCall}
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full p-5 shadow-xl transition-transform hover:scale-110 active:scale-95"
-              >
-                <XMarkIcon className="w-8 h-8" />
-              </button>
-              <p className="text-stone-500 font-bold mt-4 text-xs uppercase tracking-widest">End Call</p>
             </div>
+
+            <p className="min-h-[5rem] max-w-lg text-lg font-medium leading-relaxed text-stone-300 md:text-xl">{callText}</p>
+
+            <button
+              onClick={endCall}
+              aria-label="End call"
+              className="mt-10 rounded-full bg-red-500 p-5 text-white shadow-xl transition hover:scale-105 hover:bg-red-600 active:scale-95"
+            >
+              <PhoneIcon className="h-7 w-7 rotate-[135deg]" />
+            </button>
+            <p className="mt-3 text-xs font-bold uppercase tracking-widest text-stone-500">End call</p>
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Premium Floating Action Button */}
-      <motion.button
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        whileHover={{ scale: 1.05, boxShadow: "0px 0px 20px rgba(79, 70, 229, 0.5)" }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl z-50 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-size-200 animate-gradient-x text-white ${isOpen ? 'hidden' : 'flex'} items-center justify-center cursor-pointer`}
-      >
-        <SparklesIcon className="h-8 w-8 animate-pulse" />
-      </motion.button>
 
-      {/* Premium Chat Window */}
+      {/* Launcher + teaser */}
       <AnimatePresence>
-        {isOpen && (
+        {!isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
-            className="fixed bottom-6 right-6 w-[360px] md:w-[400px] bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/20 dark:border-stone-800 z-[100] overflow-hidden flex flex-col h-[600px] max-h-[85vh]"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3"
           >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white flex justify-between items-center shrink-0 shadow-md">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30 shadow-inner">
-                  <SparklesIcon className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg leading-tight tracking-tight">Pro Assistant</h3>
-                  <div className="flex items-center space-x-1">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                    <p className="text-xs text-indigo-100 font-medium">Online</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={startCall}
-                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all cursor-pointer backdrop-blur-sm group relative"
-                >
-                  <PhoneIcon className="h-5 w-5 text-green-300 group-hover:text-green-400" />
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                  </span>
-                </button>
-                <button 
-                  onClick={() => setIsOpen(false)}
-                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all cursor-pointer backdrop-blur-sm"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-stone-50/50 dark:bg-black/40 custom-scrollbar relative">
-              {messages.map((msg) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={msg.id}
-                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                >
-                  <div 
-                    className={`max-w-[85%] p-4 text-sm font-medium leading-relaxed ${
-                      msg.sender === 'user' 
-                        ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-2xl rounded-tr-sm shadow-md' 
-                        : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border border-stone-200/50 dark:border-stone-700/50 rounded-2xl rounded-tl-sm shadow-sm backdrop-blur-sm'
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
-                  />
-                  
-                  {/* Inline Service Cards Rendered by AI */}
-                  {msg.services && msg.services.length > 0 && (
-                    <div className="w-[90%] mt-3 space-y-3">
-                      {msg.services.map((service, idx) => (
-                        <motion.div 
-                          key={service._id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.1 }}
-                          className="bg-white dark:bg-stone-800 p-3 rounded-xl shadow-sm border border-stone-100 dark:border-stone-700 flex items-center space-x-3 group hover:shadow-md transition-all cursor-pointer"
-                        >
-                          <img 
-                            src={service.images?.[0] || 'https://via.placeholder.com/60'} 
-                            alt={service.name}
-                            className="w-14 h-14 object-cover rounded-lg"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">{service.name}</h4>
-                            <div className="flex items-center text-xs text-stone-500 mt-1">
-                              <StarIcon className="w-3 h-3 text-yellow-400 mr-1" />
-                              <span className="font-medium mr-2">{service.rating || 'New'}</span>
-                              <span className="truncate">₹{service.price}</span>
-                            </div>
-                          </div>
-                          <Link 
-                            to={`/service/${service._id}`}
-                            className="shrink-0 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 p-2 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
-                          >
-                            Book
-                          </Link>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-              
-              {isTyping && (
+            <AnimatePresence>
+              {showTeaser && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-start space-y-3"
+                  exit={{ opacity: 0, y: 10 }}
+                  className="relative max-w-[240px] rounded-2xl rounded-br-md border border-stone-200 bg-white p-4 pr-8 shadow-xl dark:border-stone-700 dark:bg-stone-900"
                 >
-                  <div className="bg-white dark:bg-stone-800 border border-stone-200/50 dark:border-stone-700/50 p-4 rounded-2xl rounded-tl-sm shadow-sm flex space-x-2 items-center h-[52px]">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse delay-75" />
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse delay-150" />
-                  </div>
-                  
-                  {/* Beautiful Shimmering Skeleton */}
-                  <div className="w-[90%] space-y-3 pl-2">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="bg-white/50 dark:bg-stone-800/50 p-3 rounded-xl shadow-sm border border-stone-100 dark:border-stone-700 flex items-center space-x-3 backdrop-blur-sm animate-pulse">
-                        <div className="w-14 h-14 bg-stone-200 dark:bg-stone-700 rounded-lg"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3.5 bg-stone-200 dark:bg-stone-700 rounded-full w-3/4"></div>
-                          <div className="h-2.5 bg-stone-200 dark:bg-stone-700 rounded-full w-1/2"></div>
-                        </div>
-                        <div className="w-12 h-8 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg"></div>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={dismissTeaser}
+                    aria-label="Dismiss"
+                    className="absolute right-2 top-2 rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800"
+                  >
+                    <XMarkIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={openChat} className="text-left">
+                    <p className="text-sm font-bold text-stone-900 dark:text-white">Hi{firstName ? ` ${firstName}` : ''} 👋</p>
+                    <p className="mt-1 text-xs font-medium leading-relaxed text-stone-500 dark:text-stone-400">
+                      Need a pro? Tell me what's wrong and I'll find verified help nearby.
+                    </p>
+                  </button>
                 </motion.div>
               )}
-              <div ref={messagesEndRef} />
+            </AnimatePresence>
+
+            <button
+              onClick={openChat}
+              aria-label="Open chat assistant"
+              className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-emerald-700 text-white shadow-xl shadow-primary-600/30 transition hover:scale-105 hover:shadow-2xl active:scale-95"
+            >
+              <ChatBubbleOvalLeftEllipsisIcon className="h-7 w-7" />
+              {showTeaser && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 text-[9px] font-black dark:border-stone-900">1</span>
+              )}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chat window */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            role="dialog"
+            aria-label="Pro Assistant chat"
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.97 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-stone-50 dark:bg-stone-950 sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[min(680px,calc(100vh-40px))] sm:w-[400px] sm:rounded-3xl sm:border sm:border-stone-200 sm:shadow-2xl sm:shadow-stone-900/20 dark:sm:border-stone-800"
+          >
+            {/* Header */}
+            <div className="relative shrink-0 bg-gradient-to-br from-stone-900 via-stone-900 to-emerald-950 px-4 py-3.5 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <AssistantAvatar size="lg" />
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-stone-900 bg-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold leading-tight">Pro Assistant</h3>
+                    <p className="text-xs font-medium text-stone-400">AI support · Replies instantly</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={startCall} title="Voice call" aria-label="Start voice call" className="rounded-full p-2 text-stone-300 transition hover:bg-white/10 hover:text-white">
+                    <PhoneIcon className="h-5 w-5" />
+                  </button>
+                  {hasConversation && (
+                    <button onClick={newConversation} title="New conversation" aria-label="New conversation" className="rounded-full p-2 text-stone-300 transition hover:bg-white/10 hover:text-white">
+                      <ArrowPathIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                  <button onClick={() => setIsOpen(false)} title="Close" aria-label="Close chat" className="rounded-full p-2 text-stone-300 transition hover:bg-white/10 hover:text-white">
+                    <ChevronDownIcon className="h-5 w-5 sm:hidden" />
+                    <XMarkIcon className="hidden h-5 w-5 sm:block" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Input Area */}
-            <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-t border-stone-200/50 dark:border-stone-800/50 shrink-0">
-              {/* Quick Replies */}
-              <div className="flex overflow-x-auto p-3 space-x-2 custom-scrollbar hide-scroll-indicator">
-                {quickReplies.map((reply, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleQuickReply(reply)}
-                    className="whitespace-nowrap px-3 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-stone-700 dark:text-stone-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold rounded-full border border-stone-200 dark:border-stone-700 transition-colors"
-                  >
-                    {reply}
-                  </button>
-                ))}
-              </div>
-
-              <div className="p-4 pt-0">
-                <form onSubmit={handleSend} className="relative flex items-center space-x-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder={isListening ? "Listening..." : "Describe what you need..."}
-                      className="w-full bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white rounded-2xl py-3.5 pl-5 pr-12 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all border border-transparent focus:border-indigo-500 shadow-inner"
-                    />
-                    <button
-                      type="button"
-                      onClick={toggleVoiceSearch}
-                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors ${
-                        isListening 
-                          ? 'bg-red-100 text-red-500 animate-pulse' 
-                          : 'text-stone-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
-                      }`}
-                    >
-                      <MicrophoneIcon className="h-5 w-5" />
-                    </button>
+            {/* Body */}
+            <div ref={scrollRef} onScroll={handleScroll} className="custom-scrollbar relative flex-1 overflow-y-auto">
+              {!hasConversation ? (
+                <div className="p-5">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-black tracking-tight text-stone-900 dark:text-white">
+                      {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-stone-500 dark:text-stone-400">
+                      How can we help you today? Describe the problem in your own words — English, Hindi or Punjabi.
+                    </p>
                   </div>
-                  
+
+                  <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.15em] text-stone-400">Popular services</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {quickCategories.map(cat => (
+                      <button
+                        key={cat.label}
+                        onClick={() => sendMessage(cat.prompt)}
+                        className="flex flex-col items-center gap-1.5 rounded-2xl border border-stone-200 bg-white px-2 py-3.5 text-xs font-bold text-stone-700 transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-primary-700"
+                      >
+                        <span className="text-2xl">{cat.emoji}</span>
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="mb-2.5 mt-6 text-[11px] font-bold uppercase tracking-[0.15em] text-stone-400">Quick help</p>
+                  <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+                    {helpTopics.map((topic, i) => (
+                      <button
+                        key={topic}
+                        onClick={() => sendMessage(topic)}
+                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-stone-700 transition hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800 ${i > 0 ? 'border-t border-stone-100 dark:border-stone-800' : ''}`}
+                      >
+                        {topic}
+                        <PaperAirplaneIcon className="h-4 w-4 text-stone-300 dark:text-stone-600" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-5 p-4">
+                  {messages.map(msg => (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {msg.sender === 'ai' && <div className="mt-0.5"><AssistantAvatar /></div>}
+
+                      <div className={`flex min-w-0 max-w-[85%] flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`group relative px-4 py-2.5 text-[13.5px] leading-relaxed ${
+                            msg.sender === 'user'
+                              ? 'whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary-600 text-white shadow-sm'
+                              : msg.isError
+                                ? 'rounded-2xl rounded-tl-md border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200'
+                                : 'rounded-2xl rounded-tl-md border border-stone-200 bg-white text-stone-700 shadow-sm dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300'
+                          }`}
+                        >
+                          {msg.isError && <ExclamationTriangleIcon className="mb-1 h-4 w-4" />}
+                          {msg.sender === 'user' ? msg.text : <FormattedText text={msg.text} />}
+                          {msg.isError && msg.retryText && (
+                            <button
+                              onClick={() => retry(msg.retryText)}
+                              className="mt-2 flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline dark:text-amber-300"
+                            >
+                              <ArrowPathIcon className="h-3.5 w-3.5" /> Try again
+                            </button>
+                          )}
+                        </div>
+
+                        {msg.services?.length > 0 && (
+                          <div className="mt-2 w-full space-y-2" style={{ minWidth: 'min(300px, 75vw)' }}>
+                            {msg.services.map(service => (
+                              <ServiceResultCard key={service._id} service={service} onNavigate={() => setIsOpen(false)} />
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-1 flex items-center gap-2 px-1 text-[10.5px] font-medium text-stone-400">
+                          <span>{msg.sender === 'ai' ? 'Pro Assistant' : 'You'} · {formatTime(msg.time)}</span>
+                          {msg.sender === 'ai' && !msg.isError && (
+                            <button onClick={() => copyMessage(msg)} title="Copy" aria-label="Copy message" className="rounded p-0.5 hover:text-stone-600 dark:hover:text-stone-200">
+                              {copiedId === msg.id ? <CheckIcon className="h-3.5 w-3.5 text-primary-500" /> : <ClipboardDocumentIcon className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+
+                        {msg.id === lastAiId && !isTyping && msg.suggestions?.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
+                            {msg.suggestions.map(chip => (
+                              <button
+                                key={chip}
+                                onClick={() => handleChip(chip)}
+                                className="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition hover:bg-primary-100 dark:border-primary-900 dark:bg-primary-950/50 dark:text-primary-400 dark:hover:bg-primary-900/50"
+                              >
+                                {chip}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {isTyping && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2">
+                      <AssistantAvatar />
+                      <div className="flex items-center gap-1 rounded-2xl rounded-tl-md border border-stone-200 bg-white px-4 py-3.5 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+                        {[0, 1, 2].map(i => (
+                          <motion.span
+                            key={i}
+                            className="h-2 w-2 rounded-full bg-stone-400"
+                            animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
+                          />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {showScrollDown && (
+              <button
+                onClick={() => scrollToBottom()}
+                aria-label="Scroll to latest"
+                className="absolute bottom-28 left-1/2 z-10 -translate-x-1/2 rounded-full border border-stone-200 bg-white p-2 shadow-lg dark:border-stone-700 dark:bg-stone-800"
+              >
+                <ChevronDownIcon className="h-4 w-4 text-stone-600 dark:text-stone-300" />
+              </button>
+            )}
+
+            {/* Composer */}
+            <div className="shrink-0 border-t border-stone-200 bg-white px-3 pb-2.5 pt-3 dark:border-stone-800 dark:bg-stone-900">
+              <form onSubmit={handleSubmit} className="flex items-end gap-2">
+                <div className={`flex flex-1 items-end rounded-2xl border bg-stone-50 transition dark:bg-stone-800 ${isListening ? 'border-red-300 ring-2 ring-red-100 dark:border-red-800 dark:ring-red-900/30' : 'border-stone-200 focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100 dark:border-stone-700 dark:focus-within:border-primary-600 dark:focus-within:ring-primary-900/40'}`}>
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    value={input}
+                    maxLength={MAX_INPUT}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={isListening ? 'Listening…' : 'Type your message…'}
+                    aria-label="Message"
+                    className="max-h-[120px] flex-1 resize-none bg-transparent py-3 pl-4 pr-1 text-sm font-medium text-stone-900 placeholder:text-stone-400 focus:outline-none dark:text-white"
+                  />
                   <button
-                    type="submit"
-                    disabled={!input.trim()}
-                    className="p-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                    type="button"
+                    onClick={toggleVoiceInput}
+                    title="Voice input"
+                    aria-label="Voice input"
+                    className={`m-1.5 rounded-xl p-2 transition ${isListening ? 'animate-pulse bg-red-100 text-red-500 dark:bg-red-900/40' : 'text-stone-400 hover:bg-stone-200 hover:text-stone-600 dark:hover:bg-stone-700 dark:hover:text-stone-200'}`}
                   >
-                    <PaperAirplaneIcon className="h-5 w-5" />
+                    <MicrophoneIcon className="h-5 w-5" />
                   </button>
-                </form>
-              </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isTyping}
+                  aria-label="Send message"
+                  className="mb-0.5 rounded-2xl bg-primary-600 p-3 text-white shadow-sm transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-400 dark:disabled:bg-stone-800 dark:disabled:text-stone-600"
+                >
+                  <PaperAirplaneIcon className="h-5 w-5" />
+                </button>
+              </form>
+              <p className="mt-2 text-center text-[10.5px] font-medium text-stone-400">
+                AI assistant · Answers may be imperfect, check details before booking
+              </p>
             </div>
           </motion.div>
         )}
