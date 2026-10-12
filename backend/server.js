@@ -14,6 +14,19 @@ const server = http.createServer(app);
 // IMMEDIATE HEALTH CHECK
 app.get('/health', (req, res) => res.status(200).send('API IS ALIVE'));
 
+// Shows which settings are present (true/false only, never the values)
+app.get('/health/config', (req, res) => {
+  const isSet = (name) => Boolean(process.env[name] && process.env[name].trim());
+  res.json({
+    mongo: isSet('MONGO_URI') || isSet('MONGODB_URI'),
+    jwtSecret: isSet('JWT_SECRET'),
+    imagekitPublicKey: isSet('IMAGEKIT_PUBLIC_KEY'),
+    imagekitPrivateKey: isSet('IMAGEKIT_PRIVATE_KEY'),
+    imagekitUrlEndpoint: isSet('IMAGEKIT_URL_ENDPOINT'),
+    gemini: isSet('GEMINI_API_KEY')
+  });
+});
+
 // Allow Vercel frontend and Local frontend
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
