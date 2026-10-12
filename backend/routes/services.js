@@ -13,18 +13,30 @@ const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|gif/;
+    const filetypes = /jpeg|jpg|png|gif|webp/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only images are allowed'));
+      cb(new Error('Only JPG, PNG, GIF or WEBP images are allowed'));
     }
   }
 });
+
+// Run multer and turn upload errors into a 400 with a readable message
+// (otherwise Express returns a bare 500 HTML page)
+const uploadImages = (req, res, next) => {
+  upload.array('images', 5)(req, res, (err) => {
+    if (!err) return next();
+    let message = err.message;
+    if (err.code === 'LIMIT_FILE_SIZE') message = 'Each image must be 10MB or smaller';
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') message = 'Maximum 5 images allowed';
+    res.status(400).json({ message });
+  });
+};
 
 // Get nearby services
 router.get('/nearby', async (req, res) => {
@@ -112,7 +124,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create service (provider only)
-router.post('/', auth, upload.array('images', 5), async (req, res) => {
+router.post('/', auth, uploadImages, async (req, res) => {
   try {
     console.log('Creating service for user:', req.user);
     
@@ -189,7 +201,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res) => {
 });
 
 // Update service
-router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
+router.put('/:id', auth, uploadImages, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
     

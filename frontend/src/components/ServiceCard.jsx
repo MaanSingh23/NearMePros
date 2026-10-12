@@ -1,23 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StarIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/solid';
-import { ArrowRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, ShieldCheckIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { getUploadsUrl } from '../utils/api';
 
 function ServiceCard({ service }) {
   const { _id, name, category, description, price, priceType, rating, totalReviews, providerId, images, isVerified } = service;
 
-  const fallbackImages = [
-    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400',
-    'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400',
-    'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=400'
-  ];
+  const [imageFailed, setImageFailed] = useState(false);
 
-  const fallbackIndex = _id ? _id.length % fallbackImages.length : 0;
-
-  const serviceImage = images && images.length > 0 
-    ? getUploadsUrl(images[0])
-    : fallbackImages[fallbackIndex];
+  // Only show an image uploaded by the provider
+  const serviceImage = images?.[0] ? getUploadsUrl(images[0]) : null;
 
   return (
     <Link to={`/service/${_id}`} className="block group">
@@ -35,14 +28,18 @@ function ServiceCard({ service }) {
         </div>
 
         <div className="relative h-72 w-full overflow-hidden">
-          <img
-            src={serviceImage}
-            alt={name}
-            className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-110"
-            onError={(e) => {
-              e.target.src = fallbackImages[fallbackIndex];
-            }}
-          />
+          {serviceImage && !imageFailed ? (
+            <img
+              src={serviceImage}
+              alt={name}
+              className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-110"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-stone-200 text-stone-400 dark:bg-stone-800 dark:text-stone-600">
+              <PhotoIcon className="h-16 w-16" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent dark:from-stone-950 dark:via-stone-950/40" />
           <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-3">
             <div>

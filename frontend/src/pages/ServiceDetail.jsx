@@ -18,7 +18,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   XCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import toast from 'react-hot-toast';
@@ -42,13 +43,8 @@ const ServiceDetail = () => {
     description: ''
   });
   const [bookingLoading, setBookingLoading] = useState(false);
-
-  // Backup images in case uploaded images fail
-  const fallbackImages = [
-    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
-    'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800',
-    'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800'
-  ];
+  // Indexes of uploaded images that failed to load
+  const [failedImages, setFailedImages] = useState({});
 
   useEffect(() => {
     fetchServiceDetails();
@@ -122,16 +118,9 @@ const ServiceDetail = () => {
     }
   };
 
-  // Use the centralized api utility helper
-  const getImageUrlLocal = (imagePath, index = 0) => {
-    if (!imagePath) return fallbackImages[index % fallbackImages.length];
-    return getUploadsUrl(imagePath);
-  };
-
-  // Error handler for images
-  const handleImageError = (e, index = 0) => {
-    console.log('Image failed to load:', e.target.src);
-    e.target.src = fallbackImages[index % fallbackImages.length];
+  // Error handler for images - show placeholder instead of a stock photo
+  const handleImageError = (index) => {
+    setFailedImages(prev => ({ ...prev, [index]: true }));
   };
 
   const timeSlots = [
@@ -164,10 +153,9 @@ const ServiceDetail = () => {
     );
   }
 
-  // Prepare images array - mix of uploaded and fallback
-  const displayImages = service.images?.length > 0 
-    ? service.images 
-    : fallbackImages;
+  // Only show images uploaded by the provider
+  const displayImages = service.images?.filter(Boolean) || [];
+  const currentImage = displayImages[selectedImage];
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-stone-50 dark:bg-[#0c0a09] py-8 text-stone-900 dark:text-stone-100">
@@ -191,12 +179,19 @@ const ServiceDetail = () => {
               className="bg-white dark:bg-stone-900 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden mb-8"
             >
               <div className="relative h-[550px]">
-                <img
-                  src={getImageUrlLocal(displayImages[selectedImage], selectedImage)}
-                  alt={service.name}
-                  className="w-full h-full object-cover object-top"
-                  onError={(e) => handleImageError(e, selectedImage)}
-                />
+                {currentImage && !failedImages[selectedImage] ? (
+                  <img
+                    src={getUploadsUrl(currentImage)}
+                    alt={service.name}
+                    className="w-full h-full object-cover object-top"
+                    onError={() => handleImageError(selectedImage)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500">
+                    <PhotoIcon className="h-20 w-20 mb-3" />
+                    <p className="font-bold">No photo uploaded</p>
+                  </div>
+                )}
                 
                 {displayImages.length > 1 && (
                   <>
@@ -297,12 +292,7 @@ const ServiceDetail = () => {
                   {reviews.map((review) => (
                     <div key={review._id} className="border-b border-stone-200 dark:border-stone-800 last:border-0 pb-8 last:pb-0">
                       <div className="flex items-start space-x-4">
-                        <img
-                          src={review.userId?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'}
-                          alt={review.userId?.name}
-                          className="h-12 w-12 rounded-full object-cover shadow-sm"
-                          onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'}
-                        />
+                        <Avatar user={review.userId} className="h-12 w-12 shadow-sm text-lg" />
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <div>
@@ -343,12 +333,7 @@ const ServiceDetail = () => {
               <h2 className="text-xl font-black text-stone-900 dark:text-white mb-6">Service Provider</h2>
               
               <div className="flex items-center space-x-4 mb-6">
-                <img
-                  src={provider?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'}
-                  alt={provider?.name}
-                  className="h-16 w-16 rounded-full object-cover ring-2 ring-stone-100 dark:ring-stone-800 shadow-sm"
-                  onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'}
-                />
+                <Avatar user={provider} className="h-16 w-16 ring-2 ring-stone-100 dark:ring-stone-800 shadow-sm text-2xl" />
                 <div>
                   <h3 className="font-black text-stone-900 dark:text-white text-lg">{provider?.name}</h3>
                   <div className="flex items-center mt-1">
@@ -513,6 +498,30 @@ const ServiceDetail = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Removed local Chatbot */}
+    </div>
+  );
+};
+
+// Shows the user's uploaded avatar, or their initial if they haven't added one
+const Avatar = ({ user, className = '' }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (user?.avatar && !failed) {
+    return (
+      <img
+        src={getUploadsUrl(user.avatar)}
+        alt={user.name}
+        className={`rounded-full object-cover shrink-0 ${className}`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`rounded-full shrink-0 flex items-center justify-center bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-400 font-black ${className}`}>
+      {user?.name?.charAt(0)?.toUpperCase() || '?'}
     </div>
   );
 };

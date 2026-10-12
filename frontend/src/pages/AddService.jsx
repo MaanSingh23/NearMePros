@@ -19,6 +19,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
+import { validateImages } from '../utils/validateImages';
 
 // Use the centralized api utility
 
@@ -79,7 +80,8 @@ function AddService() {
   };
 
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
+    const files = validateImages(Array.from(e.target.files));
+    e.target.value = '';
     if (images.length + files.length > 5) {
       toast.error('Maximum 5 images allowed');
       return;

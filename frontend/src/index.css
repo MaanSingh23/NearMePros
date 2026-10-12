@@ -103,3 +103,4 @@
 .animate-gradient {
   animation: gradient 3s ease infinite;
 }
+.hide-scroll-indicator::-webkit-scrollbar { display: none; } .hide-scroll-indicator { -ms-overflow-style: none; scrollbar-width: none; }

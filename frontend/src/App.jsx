@@ -32,6 +32,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import GlobalAIAssistant from './components/GlobalAIAssistant';
 
 // NotFound Component
 const NotFound = () => (
@@ -103,6 +104,7 @@ const AppContent = () => {
       </main>
 
       {!isAuthPage && <Footer />}
+      <GlobalAIAssistant />
     </div>
   );
 };
