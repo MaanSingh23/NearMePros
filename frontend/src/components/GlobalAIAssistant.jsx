@@ -377,19 +377,64 @@ const GlobalAIAssistant = () => {
     return SpeechRecognition ? new SpeechRecognition() : null;
   };
 
-  const toggleVoiceInput = () => {
+  const showNotice = (text) => {
+    setMessages(prev => [...prev.filter(m => !m.isNotice), {
+      id: Date.now(), sender: 'ai', isError: true, isNotice: true, time: Date.now(), text
+    }]);
+  };
+
+  // Explains why the microphone couldn't be used instead of failing silently
+  const voiceErrorText = (code) => {
+    switch (code) {
+      case 'not-allowed':
+      case 'service-not-allowed':
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Microphone access is blocked. Click the 🔒 icon next to the website address, set **Microphone** to **Allow**, then reload the page and try again.';
+      case 'audio-capture':
+      case 'NotFoundError':
+        return 'No microphone was found. Please connect a microphone (or check your headset) and try again.';
+      case 'NotReadableError':
+        return 'Your microphone is being used by another app. Close that app and try again.';
+      case 'network':
+        return 'Voice recognition needs an internet connection to Google. Check your connection, or use Google Chrome (some browsers like Brave block it).';
+      case 'no-speech':
+        return 'I didn\'t hear anything. Tap the mic and start speaking when it turns red.';
+      case 'unsupported':
+        return 'Voice input isn\'t supported in this browser. Please use **Google Chrome** or **Microsoft Edge**, or type your message.';
+      default:
+        return 'Voice input stopped unexpectedly. Please try again or type your message.';
+    }
+  };
+
+  // Ask for microphone permission up front so the browser shows its prompt
+  const ensureMicrophone = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return null;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      return null;
+    } catch (error) {
+      return error.name || 'not-allowed';
+    }
+  };
+
+  const toggleVoiceInput = async () => {
     if (isListening) {
       recognitionRef.current?.stop();
       return;
     }
     const recognition = getRecognition();
     if (!recognition) {
-      setMessages(prev => [...prev, {
-        id: Date.now(), sender: 'ai', isError: true, time: Date.now(),
-        text: 'Voice input isn\'t supported in this browser. Please try Google Chrome.'
-      }]);
+      showNotice(voiceErrorText('unsupported'));
       return;
     }
+    const micError = await ensureMicrophone();
+    if (micError) {
+      showNotice(voiceErrorText(micError));
+      return;
+    }
+    setMessages(prev => prev.filter(m => !m.isNotice));
     recognition.lang = 'en-IN';
     recognition.interimResults = true;
     recognition.onstart = () => setIsListening(true);
@@ -401,10 +446,17 @@ const GlobalAIAssistant = () => {
         sendMessage(transcript);
       }
     };
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      if (event.error !== 'aborted') showNotice(voiceErrorText(event.error));
+    };
     recognition.onend = () => setIsListening(false);
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
   };
 
   // --- Voice call mode ---
@@ -437,11 +489,17 @@ const GlobalAIAssistant = () => {
         answerInCall(transcript);
       }
     };
+    let fatalError = false;
     recognition.onend = () => {
-      // Silence: keep the line open
-      if (!finalHeard && callActiveRef.current) setTimeout(listenInCall, 400);
+      // Silence: keep the line open (but not after a permission/device error)
+      if (!finalHeard && !fatalError && callActiveRef.current) setTimeout(listenInCall, 400);
     };
-    recognition.onerror = () => {};
+    recognition.onerror = (event) => {
+      if (['no-speech', 'aborted'].includes(event.error)) return;
+      fatalError = true;
+      setCallStatus('Microphone problem');
+      setCallText(voiceErrorText(event.error).replaceAll('**', ''));
+    };
     try {
       recognition.start();
     } catch {
@@ -474,12 +532,14 @@ const GlobalAIAssistant = () => {
     }
   };
 
-  const startCall = () => {
+  const startCall = async () => {
     if (!getRecognition() || !('speechSynthesis' in window)) {
-      setMessages(prev => [...prev, {
-        id: Date.now(), sender: 'ai', isError: true, time: Date.now(),
-        text: 'Voice calls aren\'t supported in this browser. Please try Google Chrome.'
-      }]);
+      showNotice(voiceErrorText('unsupported'));
+      return;
+    }
+    const micError = await ensureMicrophone();
+    if (micError) {
+      showNotice(voiceErrorText(micError));
       return;
     }
     callActiveRef.current = true;
