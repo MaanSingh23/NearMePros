@@ -12,9 +12,11 @@ import {
   ChevronDownIcon,
   PhotoIcon,
   ChatBubbleOvalLeftEllipsisIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  SpeakerWaveIcon,
+  StopCircleIcon
 } from '@heroicons/react/24/outline';
-import { StarIcon, MapPinIcon } from '@heroicons/react/24/solid';
+import { StarIcon, MapPinIcon, CheckBadgeIcon } from '@heroicons/react/24/solid';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../context/LocationContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +24,24 @@ import api, { getUploadsUrl } from '../utils/api';
 
 const STORAGE_KEY = 'nmp-assistant-chat';
 const TEASER_KEY = 'nmp-assistant-teaser-seen';
+const LANGUAGE_KEY = 'nmp-assistant-language';
+
+// "auto" replies in whatever language the customer writes in
+const languageOptions = [
+  { value: 'auto', label: 'Auto', speech: 'en-IN' },
+  { value: 'en', label: 'English', speech: 'en-IN' },
+  { value: 'hi', label: 'हिंदी', speech: 'hi-IN' },
+  { value: 'pa', label: 'ਪੰਜਾਬੀ', speech: 'pa-IN' }
+];
+
+const loadLanguage = () => {
+  try {
+    const saved = localStorage.getItem(LANGUAGE_KEY);
+    return languageOptions.some(o => o.value === saved) ? saved : 'auto';
+  } catch {
+    return 'auto';
+  }
+};
 const MAX_INPUT = 1000;
 
 const quickCategories = [
@@ -34,8 +54,9 @@ const quickCategories = [
 ];
 
 const helpTopics = [
+  'How much does AC repair cost?',
+  'Top rated services near me',
   'How does booking work?',
-  'Can I cancel a booking?',
   'Is payment taken online?'
 ];
 
@@ -115,52 +136,118 @@ const AssistantAvatar = ({ size = 'sm' }) => (
   </div>
 );
 
-const ServiceResultCard = ({ service, onNavigate }) => {
+const formatKm = (km) => (km < 0.1 ? '<100 m' : `${km} km`);
+
+// Marks the nearest, cheapest and best-rated result when there's a choice
+const getBadges = (services) => {
+  const badges = {};
+  if (!services || services.length < 2) return badges;
+  const add = (service, label) => {
+    if (!service) return;
+    badges[service._id] = [...(badges[service._id] || []), label];
+  };
+  const withDistance = services.filter(s => s.distanceKm != null);
+  if (withDistance.length > 1) add([...withDistance].sort((a, b) => a.distanceKm - b.distanceKm)[0], 'Nearest');
+  add([...services].sort((a, b) => a.price - b.price)[0], 'Lowest price');
+  const rated = services.filter(s => s.rating > 0);
+  if (rated.length) add([...rated].sort((a, b) => b.rating - a.rating || (b.totalReviews || 0) - (a.totalReviews || 0))[0], 'Top rated');
+  return badges;
+};
+
+const badgeStyles = {
+  'Nearest': 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  'Lowest price': 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300',
+  'Top rated': 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+};
+
+const ResultSummary = ({ summary }) => {
+  if (!summary || summary.count < 1) return null;
+  const price = summary.minPrice === summary.maxPrice ? `₹${summary.minPrice}` : `₹${summary.minPrice}–₹${summary.maxPrice}`;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-stone-100 px-3 py-2 text-[11px] font-semibold text-stone-600 dark:bg-stone-800/70 dark:text-stone-300">
+      <span>{summary.count} {summary.count === 1 ? 'professional' : 'professionals'}</span>
+      <span className="text-stone-300 dark:text-stone-600">•</span>
+      <span>{price}</span>
+      {summary.nearestKm != null && (
+        <>
+          <span className="text-stone-300 dark:text-stone-600">•</span>
+          <span className="flex items-center gap-0.5"><MapPinIcon className="h-3 w-3" />nearest {formatKm(summary.nearestKm)}</span>
+        </>
+      )}
+      {summary.bestRating && (
+        <>
+          <span className="text-stone-300 dark:text-stone-600">•</span>
+          <span className="flex items-center gap-0.5"><StarIcon className="h-3 w-3 text-amber-400" />up to {summary.bestRating.toFixed(1)}</span>
+        </>
+      )}
+    </div>
+  );
+};
+
+const ServiceResultCard = ({ service, badges = [], onNavigate }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const image = service.images?.[0] ? getUploadsUrl(service.images[0]) : null;
+  const provider = service.providerId;
 
   return (
-    <div className="flex gap-3 rounded-2xl border border-stone-200 bg-white p-2.5 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-stone-700 dark:bg-stone-800 dark:hover:border-primary-700">
-      <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-700">
-        {image && !imageFailed ? (
-          <img src={image} alt={service.name} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-400">
-            <PhotoIcon className="h-7 w-7" />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-between">
-        <div>
-          <p className="truncate text-[13px] font-bold text-stone-900 dark:text-white">{service.name}</p>
-          <div className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            <span className="flex items-center gap-0.5">
-              <StarIcon className="h-3 w-3 text-amber-400" />
-              {service.rating > 0 ? service.rating.toFixed(1) : 'New'}
-              {service.totalReviews > 0 && <span className="font-medium">({service.totalReviews})</span>}
+    <div className="rounded-2xl border border-stone-200 bg-white p-2.5 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-stone-700 dark:bg-stone-800 dark:hover:border-primary-700">
+      {badges.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {badges.map(label => (
+            <span key={label} className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${badgeStyles[label]}`}>
+              {label}
             </span>
-            {service.distanceKm != null && (
-              <span className="flex items-center gap-0.5">
-                <MapPinIcon className="h-3 w-3 text-stone-400" />
-                {service.distanceKm} km
-              </span>
-            )}
-          </div>
+          ))}
         </div>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <p className="text-sm font-black text-stone-900 dark:text-white">
-            ₹{service.price}
-            <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-              {service.priceType === 'hourly' ? '/hr' : ' fixed'}
-            </span>
-          </p>
-          <Link
-            to={`/service/${service._id}`}
-            onClick={onNavigate}
-            className="rounded-full bg-primary-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-700"
-          >
-            Book
-          </Link>
+      )}
+      <div className="flex gap-3">
+        <div className="h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-700">
+          {image && !imageFailed ? (
+            <img src={image} alt={service.name} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-stone-400">
+              <PhotoIcon className="h-7 w-7" />
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div>
+            <p className="truncate text-[13px] font-bold text-stone-900 dark:text-white">{service.name}</p>
+            {provider?.name && (
+              <p className="flex items-center gap-1 truncate text-[11px] font-medium text-stone-500 dark:text-stone-400">
+                by {provider.name}
+                {provider.isVerified && <CheckBadgeIcon className="h-3.5 w-3.5 shrink-0 text-primary-500" title="Verified" />}
+              </p>
+            )}
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+              <span className="flex items-center gap-0.5">
+                <StarIcon className="h-3 w-3 text-amber-400" />
+                {service.rating > 0 ? service.rating.toFixed(1) : 'New'}
+                {service.totalReviews > 0 && <span className="font-medium">({service.totalReviews})</span>}
+              </span>
+              {service.distanceKm != null && (
+                <span className="flex items-center gap-0.5">
+                  <MapPinIcon className="h-3 w-3 text-stone-400" />
+                  {formatKm(service.distanceKm)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <p className="text-sm font-black text-stone-900 dark:text-white">
+              ₹{service.price}
+              <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                {service.priceType === 'hourly' ? '/hr' : ' fixed'}
+              </span>
+            </p>
+            <Link
+              to={`/service/${service._id}`}
+              onClick={onNavigate}
+              className="rounded-full bg-primary-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-700"
+            >
+              Book
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -169,7 +256,7 @@ const ServiceResultCard = ({ service, onNavigate }) => {
 
 const GlobalAIAssistant = () => {
   const navigate = useNavigate();
-  const { location } = useLocation();
+  const { location, isDefaultLocation, refreshLocation, loading: locationLoading } = useLocation();
   const { user } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -180,6 +267,8 @@ const GlobalAIAssistant = () => {
   const [showTeaser, setShowTeaser] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [language, setLanguage] = useState(loadLanguage);
+  const [speakingId, setSpeakingId] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -194,6 +283,33 @@ const GlobalAIAssistant = () => {
 
   const firstName = user?.name?.split(' ')[0];
   const hasConversation = messages.length > 0;
+  const voiceLang = languageOptions.find(o => o.value === language)?.speech || 'en-IN';
+  const hasLocation = Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
+
+  const changeLanguage = (value) => {
+    setLanguage(value);
+    try {
+      localStorage.setItem(LANGUAGE_KEY, value);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Read a reply aloud in the language it was written in
+  const toggleSpeak = (msg) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (speakingId === msg.id) {
+      setSpeakingId(null);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(msg.text.replaceAll('**', '').replace(/^\s*[-*•]\s+/gm, ''));
+    utterance.lang = msg.speechLang || voiceLang;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+    setSpeakingId(msg.id);
+    window.speechSynthesis.speak(utterance);
+  };
 
   // Persist the conversation for this browser tab
   useEffect(() => {
@@ -283,7 +399,8 @@ const GlobalAIAssistant = () => {
       history,
       lat: location?.lat ?? null,
       lng: location?.lng ?? null,
-      area: location?.address || ''
+      area: location?.address || '',
+      language
     });
     return response.data;
   };
@@ -305,6 +422,8 @@ const GlobalAIAssistant = () => {
         text: data.reply,
         services: data.services || [],
         suggestions: data.suggestions || [],
+        summary: data.summary,
+        speechLang: data.speechLang,
         time: Date.now()
       }]);
     } catch (error) {
@@ -435,7 +554,7 @@ const GlobalAIAssistant = () => {
       return;
     }
     setMessages(prev => prev.filter(m => !m.isNotice));
-    recognition.lang = 'en-IN';
+    recognition.lang = voiceLang;
     recognition.interimResults = true;
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
@@ -475,7 +594,7 @@ const GlobalAIAssistant = () => {
     setCallText('Go ahead, I\'m listening…');
 
     const recognition = getRecognition();
-    recognition.lang = 'en-IN';
+    recognition.lang = voiceLang;
     recognition.interimResults = true;
     callRecognitionRef.current = recognition;
     let finalHeard = false;
@@ -517,12 +636,12 @@ const GlobalAIAssistant = () => {
       setMessages(prev => [
         ...prev,
         { id: Date.now(), sender: 'user', text: transcript, time: Date.now() },
-        { id: Date.now() + 1, sender: 'ai', text: data.reply, services: data.services || [], suggestions: data.suggestions || [], time: Date.now() }
+        { id: Date.now() + 1, sender: 'ai', text: data.reply, services: data.services || [], suggestions: data.suggestions || [], summary: data.summary, speechLang: data.speechLang, time: Date.now() }
       ]);
       setCallStatus('Speaking');
       setCallText(spoken);
       const utterance = new SpeechSynthesisUtterance(spoken);
-      utterance.lang = 'en-IN';
+      utterance.lang = data.speechLang || voiceLang;
       utterance.onend = () => setTimeout(listenInCall, 500);
       window.speechSynthesis.speak(utterance);
     } catch {
@@ -682,6 +801,37 @@ const GlobalAIAssistant = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Language + location */}
+              <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-semibold">
+                <div className="flex min-w-0 items-center gap-1.5 text-stone-300">
+                  <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-primary-400" />
+                  {hasLocation && !isDefaultLocation ? (
+                    <span className="truncate" title={location.address}>Near {location.address || 'your location'}</span>
+                  ) : (
+                    <button
+                      onClick={refreshLocation}
+                      disabled={locationLoading}
+                      className="truncate text-left underline decoration-dotted underline-offset-2 hover:text-white disabled:opacity-60"
+                    >
+                      {locationLoading ? 'Finding your location…' : `${location?.address ? `${location.address} · ` : ''}Use my exact location`}
+                    </button>
+                  )}
+                </div>
+                <div className="flex shrink-0 rounded-full bg-white/10 p-0.5" role="radiogroup" aria-label="Reply language">
+                  {languageOptions.map(option => (
+                    <button
+                      key={option.value}
+                      role="radio"
+                      aria-checked={language === option.value}
+                      onClick={() => changeLanguage(option.value)}
+                      className={`rounded-full px-2 py-0.5 transition ${language === option.value ? 'bg-white text-stone-900' : 'text-stone-300 hover:text-white'}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Body */}
@@ -760,19 +910,37 @@ const GlobalAIAssistant = () => {
                         </div>
 
                         {msg.services?.length > 0 && (
-                          <div className="mt-2 w-full space-y-2" style={{ minWidth: 'min(300px, 75vw)' }}>
-                            {msg.services.map(service => (
-                              <ServiceResultCard key={service._id} service={service} onNavigate={() => setIsOpen(false)} />
-                            ))}
+                          <div className="w-full" style={{ minWidth: 'min(300px, 75vw)' }}>
+                            <ResultSummary summary={msg.summary} />
+                            <div className="mt-2 space-y-2">
+                              {msg.services.map(service => (
+                                <ServiceResultCard
+                                  key={service._id}
+                                  service={service}
+                                  badges={getBadges(msg.services)[service._id]}
+                                  onNavigate={() => setIsOpen(false)}
+                                />
+                              ))}
+                            </div>
                           </div>
                         )}
 
                         <div className="mt-1 flex items-center gap-2 px-1 text-[10.5px] font-medium text-stone-400">
                           <span>{msg.sender === 'ai' ? 'Pro Assistant' : 'You'} · {formatTime(msg.time)}</span>
                           {msg.sender === 'ai' && !msg.isError && (
-                            <button onClick={() => copyMessage(msg)} title="Copy" aria-label="Copy message" className="rounded p-0.5 hover:text-stone-600 dark:hover:text-stone-200">
-                              {copiedId === msg.id ? <CheckIcon className="h-3.5 w-3.5 text-primary-500" /> : <ClipboardDocumentIcon className="h-3.5 w-3.5" />}
-                            </button>
+                            <>
+                              <button onClick={() => copyMessage(msg)} title="Copy" aria-label="Copy message" className="rounded p-0.5 hover:text-stone-600 dark:hover:text-stone-200">
+                                {copiedId === msg.id ? <CheckIcon className="h-3.5 w-3.5 text-primary-500" /> : <ClipboardDocumentIcon className="h-3.5 w-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => toggleSpeak(msg)}
+                                title={speakingId === msg.id ? 'Stop' : 'Listen'}
+                                aria-label={speakingId === msg.id ? 'Stop reading' : 'Read aloud'}
+                                className={`rounded p-0.5 hover:text-stone-600 dark:hover:text-stone-200 ${speakingId === msg.id ? 'text-primary-500' : ''}`}
+                              >
+                                {speakingId === msg.id ? <StopCircleIcon className="h-3.5 w-3.5" /> : <SpeakerWaveIcon className="h-3.5 w-3.5" />}
+                              </button>
+                            </>
                           )}
                         </div>
 
