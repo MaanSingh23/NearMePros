@@ -95,13 +95,18 @@ function Services() {
                 <div className="mt-5 flex flex-wrap items-center gap-3 text-stone-300">
                   <span className="inline-flex items-center font-bold">
                     <MapPinIcon className="mr-2 h-5 w-5 text-amber-500" />
-                    Showing services within {filters.radius} km of {location.label || (isDefaultLocation ? 'Delhi, India' : 'your current location')}
+                    Showing services within {filters.radius} km of {location.label || 'your current location'}
                   </span>
-                  {locationError && (
-                    <span className="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-sm font-bold text-amber-400">
+                  {(isDefaultLocation || location.isApproximate) && (
+                    <button
+                      type="button"
+                      onClick={() => refreshLocation({ force: true })}
+                      title={locationError || 'Use your device location for accurate distances'}
+                      className="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-sm font-bold text-amber-400 transition hover:bg-amber-500/20"
+                    >
                       <ExclamationTriangleIcon className="mr-1 h-4 w-4" />
-                      Default location active
-                    </span>
+                      {isDefaultLocation ? 'Default location' : 'Approximate location'} · Use exact location
+                    </button>
                   )}
                   {locationDetails && (
                     <span className="text-sm font-medium text-stone-500">{locationDetails}</span>

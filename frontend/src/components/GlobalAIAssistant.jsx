@@ -806,15 +806,15 @@ const GlobalAIAssistant = () => {
               <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-semibold">
                 <div className="flex min-w-0 items-center gap-1.5 text-stone-300">
                   <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-primary-400" />
-                  {hasLocation && !isDefaultLocation ? (
-                    <span className="truncate" title={location.address}>Near {location.address || 'your location'}</span>
+                  {hasLocation && !isDefaultLocation && !location.isApproximate ? (
+                    <span className="truncate" title={location.address}>Near {location.label || location.address || 'your location'}</span>
                   ) : (
                     <button
-                      onClick={refreshLocation}
+                      onClick={() => refreshLocation({ force: true })}
                       disabled={locationLoading}
                       className="truncate text-left underline decoration-dotted underline-offset-2 hover:text-white disabled:opacity-60"
                     >
-                      {locationLoading ? 'Finding your location…' : `${location?.address ? `${location.address} · ` : ''}Use my exact location`}
+                      {locationLoading ? 'Finding your location…' : `${location?.label ? `${location.label} · ` : ''}Use my exact location`}
                     </button>
                   )}
                 </div>

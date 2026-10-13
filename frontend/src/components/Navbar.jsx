@@ -1,6 +1,7 @@
 import React, { useEffect, useState, Fragment } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLocation as useUserLocation } from '../context/LocationContext';
 import { Menu, Transition } from '@headlessui/react';
 import {
   UserCircleIcon,
@@ -25,7 +26,7 @@ function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [scrolled, setScrolled] = useState(false);
-  const { location: userLoc, loading: locLoading, refreshLocation } = useLocation();
+  const { location: userLoc, loading: locLoading, refreshLocation, isPrecise } = useUserLocation();
   const isAdminUser = user?.role === 'admin';
   const isAdminRoute = location.pathname.startsWith('/admin');
   const shouldHideUserNav = isAdminUser || isAdminRoute;
@@ -81,8 +82,8 @@ function Navbar() {
 
             {/* Professional Location Display */}
             {!isAdminRoute && (
-              <div className="hidden h-10 items-center gap-3 border-l border-stone-200 pl-4 lg:flex dark:border-stone-800">
-                <div className="flex h-10 cursor-pointer items-center gap-2 rounded-xl px-3 transition hover:bg-stone-50 dark:hover:bg-white/5"
+              <div className="flex h-10 min-w-0 items-center gap-3 sm:border-l sm:border-stone-200 sm:pl-4 dark:border-stone-800">
+                <div className="flex h-10 min-w-0 cursor-pointer items-center gap-2 rounded-xl px-1.5 transition hover:bg-stone-50 sm:px-3 dark:hover:bg-white/5"
                   onClick={() => refreshLocation({ force: true })}
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400">
@@ -92,14 +93,23 @@ function Navbar() {
                       <MapPinIcon className="h-5 w-5" />
                     )}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">Service Area</span>
-                    <span className="text-xs font-black text-stone-900 dark:text-white">
-                      {userLoc?.city ? (
-                        `${userLoc.city}${userLoc.state ? `, ${userLoc.state}` : ''}`
+                  <div className="flex min-w-0 max-w-[120px] flex-col sm:max-w-[200px]">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                      {locLoading ? (
+                        'Locating…'
+                      ) : isPrecise ? (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                          Your location
+                        </>
+                      ) : userLoc?.isDefault ? (
+                        'Tap to detect'
                       ) : (
-                        'Ludhiana, Punjab'
+                        'Approx. area · tap'
                       )}
+                    </span>
+                    <span className="truncate text-xs font-black text-stone-900 dark:text-white" title={userLoc?.address}>
+                      {userLoc?.label || 'Ludhiana, Punjab'}
                     </span>
                   </div>
                 </div>
