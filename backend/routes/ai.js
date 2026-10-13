@@ -4,10 +4,14 @@ const Service = require('../models/Service');
 
 // Gemini is used when GEMINI_API_KEY is set; otherwise (or if Gemini fails)
 // the rule-based engine below answers, so customers always get a reply.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+// Tried in order; the lighter model is used when the main one is busy
+const GEMINI_MODELS = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL]
+  : ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+const GEMINI_TIMEOUTS_MS = [6000, 5000];
 
 // Last Gemini outcome, shown on /health/config for troubleshooting
-const geminiStatus = { model: GEMINI_MODEL, lastSuccessAt: null, lastError: null };
+const geminiStatus = { models: GEMINI_MODELS, lastSuccessAt: null, lastModel: null, lastError: null };
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY = 10;
 const SEARCH_RADIUS_KM = 25;
@@ -341,34 +345,43 @@ const geminiReply = async ({ message, history, lat, lng, area }) => {
       required: ['reply', 'serviceIds', 'suggestions']
     }
   };
-  // Skip "thinking" on 2.5 Flash models for instant replies
-  if (/^gemini-2\.5-flash/.test(GEMINI_MODEL)) {
-    generationConfig.thinkingConfig = { thinkingBudget: 0 };
-  }
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: buildSystemPrompt({ services, area }) }] },
+    contents: toGeminiContents(history, message),
+    generationConfig
+  });
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildSystemPrompt({ services, area }) }] },
-        contents: toGeminiContents(history, message),
-        generationConfig
-      }),
-      signal: AbortSignal.timeout(8000)
+  // Try each model in turn; move on when one is overloaded, rate-limited or slow
+  let data = null;
+  let lastError = null;
+  for (const [index, model] of GEMINI_MODELS.entries()) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': process.env.GEMINI_API_KEY
+          },
+          body,
+          signal: AbortSignal.timeout(GEMINI_TIMEOUTS_MS[index] || 5000)
+        }
+      );
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Gemini ${model} ${response.status}: ${errorBody.slice(0, 300)}`);
+      }
+      data = await response.json();
+      geminiStatus.lastModel = model;
+      break;
+    } catch (error) {
+      lastError = error.name === 'TimeoutError' ? new Error(`Gemini ${model} timed out`) : error;
+      console.warn(lastError.message.slice(0, 120));
     }
-  );
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Gemini ${response.status}: ${body.slice(0, 300)}`);
   }
+  if (!data) throw lastError;
 
-  const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
   const parsed = JSON.parse(text);
   if (!parsed.reply) throw new Error('Gemini returned an empty reply');
