@@ -23,7 +23,8 @@ app.get('/health/config', (req, res) => {
     imagekitPublicKey: isSet('IMAGEKIT_PUBLIC_KEY'),
     imagekitPrivateKey: isSet('IMAGEKIT_PRIVATE_KEY'),
     imagekitUrlEndpoint: isSet('IMAGEKIT_URL_ENDPOINT') ? 'set' : 'using default',
-    gemini: isSet('GEMINI_API_KEY')
+    gemini: isSet('GEMINI_API_KEY'),
+    geminiStatus: require('./routes/ai').geminiStatus
   });
 });
 

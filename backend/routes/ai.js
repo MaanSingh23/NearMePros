@@ -5,6 +5,9 @@ const Service = require('../models/Service');
 // Gemini is used when GEMINI_API_KEY is set; otherwise (or if Gemini fails)
 // the rule-based engine below answers, so customers always get a reply.
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+
+// Last Gemini outcome, shown on /health/config for troubleshooting
+const geminiStatus = { model: GEMINI_MODEL, lastSuccessAt: null, lastError: null };
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY = 10;
 const SEARCH_RADIUS_KM = 25;
@@ -407,9 +410,11 @@ router.post('/chat', async (req, res) => {
     if (process.env.GEMINI_API_KEY) {
       try {
         const result = await geminiReply({ message, history, lat, lng, area });
+        geminiStatus.lastSuccessAt = new Date().toISOString();
         return res.json({ ...result, source: 'ai' });
       } catch (error) {
         console.error('Gemini failed, using rule-based reply:', error.message);
+        geminiStatus.lastError = { at: new Date().toISOString(), message: error.message.slice(0, 300) };
       }
     }
 
@@ -422,3 +427,4 @@ router.post('/chat', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.geminiStatus = geminiStatus;
