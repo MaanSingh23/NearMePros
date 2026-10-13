@@ -22,7 +22,7 @@ app.get('/health/config', (req, res) => {
     jwtSecret: isSet('JWT_SECRET'),
     imagekitPublicKey: isSet('IMAGEKIT_PUBLIC_KEY'),
     imagekitPrivateKey: isSet('IMAGEKIT_PRIVATE_KEY'),
-    imagekitUrlEndpoint: isSet('IMAGEKIT_URL_ENDPOINT'),
+    imagekitUrlEndpoint: isSet('IMAGEKIT_URL_ENDPOINT') ? 'set' : 'using default',
     gemini: isSet('GEMINI_API_KEY')
   });
 });
