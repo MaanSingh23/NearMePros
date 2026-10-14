@@ -364,6 +364,7 @@ export const LocationProvider = ({ children }) => {
       label: place.label,
       accuracy: Math.round(accuracy),
       geocoder: GEOCODER_VERSION,
+      confirmed: Boolean(previous.confirmed && previous.source === 'gps' && distanceMeters(previous, { lat, lng }) < 150),
       source: 'gps',
       isDefault: false,
       isApproximate: accuracy > APPROXIMATE_ACCURACY_M,
@@ -470,6 +471,11 @@ export const LocationProvider = ({ children }) => {
     toast.success(`Location saved: ${houseNo ? `${houseNo}, ` : ''}${place.label}`);
   }, [saveLocation]);
 
+  /** Visitor says the detected location is right. */
+  const confirmLocation = useCallback(() => {
+    saveLocation({ ...locationRef.current, confirmed: true });
+  }, [saveLocation]);
+
   // Detect the visitor's location automatically when they arrive
   useEffect(() => {
     let permissionStatus;
@@ -539,7 +545,11 @@ export const LocationProvider = ({ children }) => {
       isApproximate: Boolean(location?.isApproximate),
       isPrecise: (location?.source === 'gps' && !location?.isApproximate) || location?.source === 'manual',
       refreshLocation: getUserLocation,
-      setManualLocation
+      setManualLocation,
+      confirmLocation,
+      // Device positions that aren't GPS-precise (laptops use Wi-Fi) should be checked by the visitor
+      needsConfirmation: location?.source === 'gps' && !location?.confirmed && location?.accuracy > GOOD_ACCURACY_M,
+      isDesktop: !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
     }}>
       {children}
     </LocationContext.Provider>

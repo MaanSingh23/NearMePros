@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocation as useUserLocation } from '../context/LocationContext';
 import LocationPicker from './LocationPicker';
+import ConfirmLocationCard from './ConfirmLocationCard';
 import { Menu, Transition } from '@headlessui/react';
 import {
   UserCircleIcon,
@@ -64,6 +65,7 @@ function Navbar() {
   return (
     <div className={`fixed left-0 right-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'pt-2' : 'pt-0 md:pt-4'}`}>
       <LocationPicker open={locationPickerOpen} onClose={() => setLocationPickerOpen(false)} />
+      {!isAdminRoute && !locationPickerOpen && <ConfirmLocationCard onAdjust={() => setLocationPickerOpen(true)} />}
       <nav className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-500 ${scrolled ? 'md:max-w-full md:px-0' : ''}`}>
         <div className={`mx-auto flex h-[4.5rem] max-w-full items-center justify-between transition-all duration-500
           ${scrolled 

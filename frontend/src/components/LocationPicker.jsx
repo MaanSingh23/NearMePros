@@ -26,7 +26,7 @@ const LocateIcon = ({ className }) => (
 );
 
 const LocationPicker = ({ open, onClose }) => {
-  const { location, loading, errorCode, refreshLocation, setManualLocation } = useLocation();
+  const { location, loading, errorCode, refreshLocation, setManualLocation, isDesktop } = useLocation();
 
   // Search
   const [query, setQuery] = useState('');
@@ -294,10 +294,17 @@ const LocationPicker = ({ open, onClose }) => {
                     </>
                   )}
                   {location.source === 'gps' && Number.isFinite(location.accuracy) && (
-                    <p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-bold ${location.isApproximate ? 'text-amber-600' : 'text-primary-600 dark:text-primary-400'}`}>
-                      <CheckCircleIcon className="h-3.5 w-3.5" />
-                      Device location found ({formatAccuracy(location.accuracy)}) - fine-tune the pin if needed
-                    </p>
+                    isDesktop && location.accuracy > 50 ? (
+                      <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                        Computers have no GPS - Windows estimates your position from Wi-Fi ({formatAccuracy(location.accuracy)}), and it can be in the wrong spot.
+                        <strong> Drag the map until the pin is on your house</strong>, or search your area above. For best results keep Wi-Fi on and Windows Location enabled (Settings → Privacy &amp; security → Location).
+                      </p>
+                    ) : (
+                      <p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-bold ${location.isApproximate ? 'text-amber-600' : 'text-primary-600 dark:text-primary-400'}`}>
+                        <CheckCircleIcon className="h-3.5 w-3.5" />
+                        Device location found ({formatAccuracy(location.accuracy)}) - fine-tune the pin if needed
+                      </p>
+                    )
                   )}
                 </div>
               </div>
