@@ -2,6 +2,7 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocation as useUserLocation } from '../context/LocationContext';
+import LocationPicker from './LocationPicker';
 import { Menu, Transition } from '@headlessui/react';
 import {
   UserCircleIcon,
@@ -26,7 +27,8 @@ function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [scrolled, setScrolled] = useState(false);
-  const { location: userLoc, loading: locLoading, refreshLocation, isPrecise } = useUserLocation();
+  const { location: userLoc, loading: locLoading, isPrecise } = useUserLocation();
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const isAdminUser = user?.role === 'admin';
   const isAdminRoute = location.pathname.startsWith('/admin');
   const shouldHideUserNav = isAdminUser || isAdminRoute;
@@ -61,6 +63,7 @@ function Navbar() {
 
   return (
     <div className={`fixed left-0 right-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'pt-2' : 'pt-0 md:pt-4'}`}>
+      <LocationPicker open={locationPickerOpen} onClose={() => setLocationPickerOpen(false)} />
       <nav className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-500 ${scrolled ? 'md:max-w-full md:px-0' : ''}`}>
         <div className={`mx-auto flex h-[4.5rem] max-w-full items-center justify-between transition-all duration-500
           ${scrolled 
@@ -84,7 +87,9 @@ function Navbar() {
             {!isAdminRoute && (
               <div className="flex h-10 min-w-0 items-center gap-3 sm:border-l sm:border-stone-200 sm:pl-4 dark:border-stone-800">
                 <div className="flex h-10 min-w-0 cursor-pointer items-center gap-2 rounded-xl px-1.5 transition hover:bg-stone-50 sm:px-3 dark:hover:bg-white/5"
-                  onClick={() => refreshLocation({ force: true })}
+                  onClick={() => setLocationPickerOpen(true)}
+                  role="button"
+                  aria-label="Change location"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400">
                     {locLoading ? (
