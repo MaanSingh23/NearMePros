@@ -23,7 +23,9 @@ const REFRESH_AFTER_MS = 10 * 60 * 1000;
 const APPROXIMATE_ACCURACY_M = 1500;
 // Stop refining once the device is this accurate, or after this long
 const GOOD_ACCURACY_M = 50;
-const REFINE_FOR_MS = 15000;
+// Bump when the address lookup improves so old saved addresses aren't reused
+const GEOCODER_VERSION = 2;
+const REFINE_FOR_MS = 10000;
 
 export const useLocation = () => useContext(LocationContext);
 
@@ -98,23 +100,72 @@ const placeFromBigDataCloud = (place) => {
   };
 };
 
-const reverseGeocode = async (lat, lng) => {
-  try {
-    const place = await fetchJson(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`
-    );
-    if (place.error) throw new Error(place.error);
-    return placeFromOpenStreetMap(place);
-  } catch (error) {
-    console.warn('OpenStreetMap reverse geocoding failed:', error);
+// Photon (komoot) knows streets and nearby places that OpenStreetMap's own
+// reverse lookup often misses in India - used to fill in street + landmark
+const fetchPhotonDetails = async (lat, lng) => {
+  const data = await fetchJson(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&limit=5&lang=en`, 5000);
+  const features = (data.features || []).map((f) => f.properties || {});
+  const roadTypes = ['primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'trunk', 'service', 'living_street'];
+  const roadFeature = features.find((p) => p.osm_key === 'highway' && roadTypes.includes(p.osm_value));
+  const poi = features.find((p) => p.name && p.osm_key !== 'highway' && p.osm_key !== 'place' && p.osm_key !== 'boundary');
+  const first = features[0] || {};
+  return {
+    road: features.find((p) => p.street)?.street || roadFeature?.name || null,
+    area: features.find((p) => p.district)?.district || first.locality || null,
+    landmark: poi?.name || null,
+    city: first.city || null,
+    state: first.state || null,
+    postcode: first.postcode || null
+  };
+};
+
+/** Coordinates -> street, area, nearby landmark, city and pincode. */
+export const reverseGeocode = async (lat, lng) => {
+  const [osmResult, photonResult] = await Promise.allSettled([
+    fetchJson(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`)
+      .then((place) => {
+        if (place.error) throw new Error(place.error);
+        return placeFromOpenStreetMap(place);
+      }),
+    fetchPhotonDetails(lat, lng)
+  ]);
+
+  const osm = osmResult.status === 'fulfilled' ? osmResult.value : null;
+  const photon = photonResult.status === 'fulfilled' ? photonResult.value : null;
+
+  if (osm || photon) {
+    const city = osm?.city || photon?.city;
+    const road = osm?.road || photon?.road;
+    // OSM's area is only useful if it's more specific than the city itself
+    const osmArea = osm?.area && osm.area !== city && osm.area !== osm.road ? osm.area : null;
+    const area = osmArea || photon?.area;
+    const landmark = photon?.landmark || osm?.landmark;
+    const state = osm?.state || photon?.state;
+    const postcode = osm?.postcode || photon?.postcode;
+    return {
+      area: area || road || city,
+      road,
+      landmark,
+      city,
+      state,
+      country: osm?.country || 'India',
+      postcode,
+      address: [
+        landmark ? `Near ${landmark}` : null,
+        ...uniqueParts([road, area, city]),
+        [state, postcode].filter(Boolean).join(' ')
+      ].filter(Boolean).join(', '),
+      label: uniqueParts([road, area]).join(', ') || uniqueParts([area, city]).join(', ') || city || 'Your location'
+    };
   }
+
   try {
     const place = await fetchJson(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
     );
     return placeFromBigDataCloud(place);
   } catch (error) {
-    console.warn('BigDataCloud reverse geocoding failed:', error);
+    console.warn('Reverse geocoding failed:', error);
   }
   return { area: null, city: null, state: null, country: null, address: 'Your current location', label: 'Your current location' };
 };
@@ -294,7 +345,8 @@ export const LocationProvider = ({ children }) => {
     const { latitude: lat, longitude: lng, accuracy } = position.coords;
     const previous = locationRef.current;
     // Reuse the place name if we've barely moved (saves a lookup)
-    const samePlace = previous.source === 'gps' && previous.label && distanceMeters(previous, { lat, lng }) < 75;
+    const samePlace = previous.source === 'gps' && previous.geocoder === GEOCODER_VERSION && previous.label
+      && distanceMeters(previous, { lat, lng }) < 75;
     const place = samePlace ? previous : await reverseGeocode(lat, lng);
     // A newer (more accurate) reading was saved while we looked up this one
     if (seq !== saveSeqRef.current) return locationRef.current;
@@ -311,6 +363,7 @@ export const LocationProvider = ({ children }) => {
       address: place.address,
       label: place.label,
       accuracy: Math.round(accuracy),
+      geocoder: GEOCODER_VERSION,
       source: 'gps',
       isDefault: false,
       isApproximate: accuracy > APPROXIMATE_ACCURACY_M,
@@ -384,8 +437,14 @@ export const LocationProvider = ({ children }) => {
     return run;
   }, [saveLocation, saveDevicePosition]);
 
-  /** Location chosen by hand from the search box - kept until they ask for GPS again. */
-  const setManualLocation = useCallback((place) => {
+  /**
+   * Location confirmed by the visitor (search result or map pin), optionally with
+   * house/flat number and a landmark. Kept until they ask for GPS again.
+   */
+  const setManualLocation = useCallback((place, details = {}) => {
+    const houseNo = details.houseNo?.trim() || '';
+    const landmarkNote = details.landmark?.trim() || '';
+    const baseAddress = place.address || place.label;
     saveLocation({
       lat: place.lat,
       lng: place.lng,
@@ -396,8 +455,11 @@ export const LocationProvider = ({ children }) => {
       state: place.state,
       country: place.country,
       postcode: place.postcode,
-      address: place.address,
-      label: place.label,
+      houseNo,
+      landmarkNote,
+      // Full address used for bookings: "H.No 123, Near Gurudwara, Dugri Road, ..."
+      address: [houseNo, landmarkNote && `Near ${landmarkNote}`, baseAddress].filter(Boolean).join(', '),
+      label: houseNo ? `${houseNo}, ${place.label}` : place.label,
       source: 'manual',
       isDefault: false,
       isApproximate: false,
@@ -405,7 +467,7 @@ export const LocationProvider = ({ children }) => {
     });
     setError(null);
     setErrorCode(null);
-    toast.success(`Location set: ${place.label}`);
+    toast.success(`Location saved: ${houseNo ? `${houseNo}, ` : ''}${place.label}`);
   }, [saveLocation]);
 
   // Detect the visitor's location automatically when they arrive
