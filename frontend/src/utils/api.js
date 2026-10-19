@@ -40,7 +40,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error.response?.data?.message || error.message || 'Unknown Error';
-    
+
+    // Background requests (e.g. status polling) pass { silent: true } and handle errors themselves
+    if (error.config?.silent) {
+      return Promise.reject(error);
+    }
+
     // Specifically handle network errors (e.g. server sleeping)
     if (error.code === 'ERR_NETWORK') {
       toast.error('Unable to connect to server. Please wait 1 minute for the backend to wake up.', { duration: 6000 });

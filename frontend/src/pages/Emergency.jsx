@@ -20,7 +20,6 @@ import { useLocation } from '../context/LocationContext';
 import LocationPicker from '../components/LocationPicker';
 import CallButton from '../components/CallButton';
 
-const ACTIVE_KEY = 'nmp-active-emergency';
 const POLL_MS = 8000;
 
 const typeVisuals = {
@@ -53,23 +52,6 @@ const elapsedText = (since) => {
   const secs = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
   const m = Math.floor(secs / 60);
   return m > 0 ? `${m} min ${secs % 60}s ago` : `${secs}s ago`;
-};
-
-const loadActive = () => {
-  try {
-    return JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');
-  } catch {
-    return null;
-  }
-};
-
-const saveActive = (value) => {
-  try {
-    if (value) localStorage.setItem(ACTIVE_KEY, JSON.stringify(value));
-    else localStorage.removeItem(ACTIVE_KEY);
-  } catch {
-    // ignore
-  }
 };
 
 // ---------------------------------------------------------------------------
@@ -139,6 +121,8 @@ const EmergencyMap = ({ center, results, highlightId, onSelect }) => {
 // ---------------------------------------------------------------------------
 // Live status of a sent request
 // ---------------------------------------------------------------------------
+const OPEN_STATUSES = ['pending', 'confirmed', 'in-progress'];
+
 const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
   const [booking, setBooking] = useState(active.booking);
   const [, setTick] = useState(0);
@@ -149,10 +133,12 @@ const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
     let stopped = false;
     const refresh = async () => {
       try {
-        const { data } = await api.get(`/bookings/${active.booking._id}`);
+        const { data } = await api.get(`/bookings/${active.booking._id}`, { silent: true });
         if (!stopped) setBooking(data);
-      } catch {
-        // keep showing the last known status
+      } catch (error) {
+        // Not this account's request (or deleted) - stop showing it
+        if (!stopped && [403, 404].includes(error.response?.status)) onClear();
+        // otherwise keep showing the last known status (e.g. server waking up)
       }
     };
     refresh();
@@ -163,7 +149,7 @@ const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
       clearInterval(poll);
       clearInterval(clock);
     };
-  }, [active.booking._id]);
+  }, [active.booking._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const status = booking.status;
   const stepIndex = statusSteps.findIndex((s) => s.key === status);
@@ -292,7 +278,7 @@ const Emergency = () => {
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState(user?.phone || '');
   const [requestingId, setRequestingId] = useState(null);
-  const [active, setActive] = useState(loadActive);
+  const [active, setActive] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const resultsRef = useRef(null);
 
@@ -301,6 +287,22 @@ const Emergency = () => {
   useEffect(() => {
     api.get('/emergency/types').then(({ data }) => setTypes(data)).catch(() => {});
   }, []);
+
+  // Show the logged-in customer's latest open emergency request (from any device)
+  useEffect(() => {
+    setActive(null);
+    if (!isAuthenticated || isStaffAccount) return;
+    let cancelled = false;
+    api.get('/bookings/my-bookings', { silent: true })
+      .then(({ data }) => {
+        const open = (data || []).find((b) => b.isEmergency && OPEN_STATUSES.includes(b.status));
+        if (!cancelled && open) setActive({ booking: open, typeId: open.emergencyType });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user?.phone && !phone) setPhone(user.phone);
@@ -357,10 +359,12 @@ const Emergency = () => {
         contactPhone: phone,
         location: { lat: location.lat, lng: location.lng, address: location.address || location.label }
       });
-      const next = { booking: data.booking, typeId };
-      setActive(next);
-      saveActive(next);
-      toast.success(data.duplicate ? 'You already have an open request with this professional' : `Emergency request sent to ${result.provider?.name || 'the professional'}`);
+      setActive({ booking: data.booking, typeId });
+      if (data.duplicate) {
+        toast('You already have an open request with this professional - showing its live status.', { icon: 'ℹ️' });
+      } else {
+        toast.success(`Emergency request sent to ${result.provider?.name || 'the professional'}`);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
       // API interceptor shows the error
@@ -371,7 +375,6 @@ const Emergency = () => {
 
   const clearActive = () => {
     setActive(null);
-    saveActive(null);
   };
 
   const chooseAnother = () => {
