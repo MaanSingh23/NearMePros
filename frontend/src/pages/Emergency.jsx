@@ -18,6 +18,7 @@ import api, { getUploadsUrl } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
 import LocationPicker from '../components/LocationPicker';
+import CallButton from '../components/CallButton';
 
 const ACTIVE_KEY = 'nmp-active-emergency';
 const POLL_MS = 8000;
@@ -228,9 +229,14 @@ const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
             </p>
           </div>
           {provider.phone && !ended && (
-            <a href={`tel:${provider.phone}`} className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700">
+            <CallButton
+              phone={provider.phone}
+              name={provider.name}
+              message={`Hi ${provider.name || ''}, I sent you an emergency request on Near Me Pros for "${booking.serviceId?.name || 'your service'}". Please call me back.`}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700"
+            >
               <PhoneIcon className="h-4 w-4" /> Call {provider.name?.split(' ')[0] || 'now'}
-            </a>
+            </CallButton>
           )}
         </div>
 
@@ -272,6 +278,9 @@ const Emergency = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
+  // Providers and admins can look but not request - requests are for customers
+  const isStaffAccount = isAuthenticated && user?.role && user.role !== 'user';
+  const isCustomer = !isStaffAccount;
   const { location, loading: locating } = useLocation();
 
   const [types, setTypes] = useState([]);
@@ -325,6 +334,10 @@ const Emergency = () => {
   };
 
   const sendRequest = async (result) => {
+    if (isStaffAccount) {
+      toast.error('Emergency requests can only be sent from a customer account.');
+      return;
+    }
     if (!isAuthenticated) {
       toast('Please log in to send an emergency request - or call the professional directly.', { icon: '🔐' });
       navigate('/login');
@@ -422,6 +435,22 @@ const Emergency = () => {
             </div>
           </div>
         </div>
+
+        {isStaffAccount && (
+          <div className="flex flex-col gap-3 rounded-3xl border border-sky-200 bg-sky-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-sky-900/50 dark:bg-sky-950/30">
+            <div>
+              <p className="font-black text-sky-900 dark:text-sky-200">You're signed in as a {user.role === 'admin' ? 'admin' : 'service provider'}</p>
+              <p className="mt-0.5 text-sm font-medium text-sky-800 dark:text-sky-300">
+                Emergency requests are sent by customers. {user.role === 'provider' ? 'Requests sent to you appear at the top of your dashboard in red - turn on "Available for emergencies (24×7)" on your services to receive them.' : 'You can view this page, but requests must come from a customer account.'}
+              </p>
+            </div>
+            {user.role === 'provider' && (
+              <Link to="/provider/dashboard" className="shrink-0 rounded-xl bg-sky-700 px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-sky-800">
+                Go to my dashboard
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Active request */}
         <AnimatePresence>
@@ -563,12 +592,18 @@ const Emergency = () => {
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {r.provider?.phone ? (
-                          <a href={`tel:${r.provider.phone}`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2.5 text-sm font-bold text-stone-800 hover:bg-stone-50 dark:border-stone-700 dark:text-stone-100 dark:hover:bg-stone-800">
+                          <CallButton
+                            phone={r.provider.phone}
+                            name={r.provider.name}
+                            message={`Hi ${r.provider.name || ''}, I found you on Near Me Pros Emergency Mode - I need urgent help (${selectedType?.title || 'emergency'}). Are you available now?`}
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2.5 text-sm font-bold text-stone-800 hover:bg-stone-50 dark:border-stone-700 dark:text-stone-100 dark:hover:bg-stone-800 ${isCustomer ? '' : 'col-span-2'}`}
+                          >
                             <PhoneIcon className="h-4 w-4" /> Call now
-                          </a>
+                          </CallButton>
                         ) : (
                           <Link to={`/service/${r._id}`} className="inline-flex items-center justify-center rounded-xl border border-stone-200 px-3 py-2.5 text-sm font-bold text-stone-800 dark:border-stone-700 dark:text-stone-100">View details</Link>
                         )}
+                        {isCustomer && (
                         <button
                           onClick={() => sendRequest(r)}
                           disabled={requestingId !== null || Boolean(active && ['pending', 'confirmed', 'in-progress'].includes(active.booking.status) && active.booking.serviceId?._id === r._id)}
@@ -577,6 +612,7 @@ const Emergency = () => {
                           {requestingId === r._id ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <BoltIcon className="h-4 w-4" />}
                           {requestingId === r._id ? 'Sending…' : 'Request urgent help'}
                         </button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -607,7 +643,7 @@ const Emergency = () => {
         </div>
       </div>
 
-      {!active && typeId && results.length > 0 && (
+      {isCustomer && !active && typeId && results.length > 0 && (
         <button
           onClick={() => fastest && sendRequest(fastest)}
           className="fixed bottom-5 left-5 z-40 inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-3.5 text-sm font-black text-white shadow-2xl shadow-red-600/40 transition hover:bg-red-700 sm:hidden"

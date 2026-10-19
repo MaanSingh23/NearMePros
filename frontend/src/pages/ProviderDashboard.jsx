@@ -17,6 +17,7 @@ import {
   SparklesIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import CallButton from '../components/CallButton';
 
 function ProviderDashboard() {
   const { user } = useAuth();
@@ -291,7 +292,14 @@ function ProviderDashboard() {
                             <div>
                               <p className="font-bold text-stone-900 dark:text-white">{booking.userId?.name}</p>
                               {booking.isEmergency && booking.contactPhone ? (
-                                <a href={`tel:${booking.contactPhone}`} className="text-xs font-bold text-red-600 hover:underline dark:text-red-400">📞 {booking.contactPhone}</a>
+                                <CallButton
+                                  phone={booking.contactPhone}
+                                  name={booking.userId?.name}
+                                  message={`Hi ${booking.userId?.name || ''}, I received your emergency request on Near Me Pros. I'm on my way.`}
+                                  className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
+                                >
+                                  📞 {booking.contactPhone}
+                                </CallButton>
                               ) : (
                                 <p className="text-xs font-medium text-stone-500">{booking.userId?.phone || booking.userId?.email}</p>
                               )}

@@ -123,6 +123,13 @@ router.get('/nearby', async (req, res) => {
  */
 router.post('/request', auth, async (req, res) => {
   try {
+    // Only customers can request help; providers receive requests
+    if (req.user.role && req.user.role !== 'user') {
+      return res.status(403).json({
+        message: 'You are logged in as a service provider. Emergency requests can only be sent from a customer account.'
+      });
+    }
+
     const { serviceId, emergencyType, description, contactPhone, location } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {

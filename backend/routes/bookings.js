@@ -157,6 +157,10 @@ router.post('/', auth, createBookingValidation, async (req, res) => {
   }
 
   try {
+    if (req.user.role && req.user.role !== 'user') {
+      return res.status(403).json({ message: 'Only customer accounts can book services. Please log in as a customer.' });
+    }
+
     const { serviceId, date, time, duration, location, description } = req.body;
     const normalizedDuration = Number(duration) || 1;
 
