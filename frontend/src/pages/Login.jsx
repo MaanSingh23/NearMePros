@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, authRequest } from '../context/AuthContext';
+import api from '../utils/api';
 import OtpVerifyPanel from '../components/otp/OtpVerifyPanel';
 import { motion } from 'framer-motion';
 import { EnvelopeIcon, LockClosedIcon, CheckCircleIcon, KeyIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
@@ -13,6 +14,13 @@ function Login() {
   const [error, setError] = useState(null);
   const [challenge, setChallenge] = useState(null); // { maskedEmail, mfaToken?, devCode? }
   const { login, verifyLoginOtp, loginWithOtp } = useAuth();
+  const [emailLoginAvailable, setEmailLoginAvailable] = useState(true);
+
+  useEffect(() => {
+    api.get('/auth/config', { silent: true })
+      .then(({ data }) => setEmailLoginAvailable(data.emailLoginAvailable !== false))
+      .catch(() => {});
+  }, []);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -90,6 +98,7 @@ function Login() {
             </div>
 
             {/* Login method */}
+            {emailLoginAvailable && (
             <div className="mt-8 grid grid-cols-2 gap-1 rounded-2xl bg-stone-100 p-1 dark:bg-stone-900" role="tablist">
               {[['password', 'Password', LockClosedIcon], ['code', 'Email code', KeyIcon]].map(([value, label, Icon]) => (
                 <button
@@ -104,6 +113,7 @@ function Login() {
                 </button>
               ))}
             </div>
+            )}
 
             <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
               <div>

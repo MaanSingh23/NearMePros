@@ -62,4 +62,14 @@ const verifyEmailSetup = async () => {
   }
 };
 
-module.exports = { sendEmail, isEmailConfigured, verifyEmailSetup };
+// Cached answer to "can we send email right now?" (re-checked every 5 minutes)
+let availability = { ok: false, checkedAt: 0 };
+const canSendEmail = async () => {
+  if (process.env.BREVO_API_KEY) return true;
+  if (Date.now() - availability.checkedAt < 5 * 60 * 1000) return availability.ok;
+  const result = await verifyEmailSetup();
+  availability = { ok: result.ok, checkedAt: Date.now() };
+  return result.ok;
+};
+
+module.exports = { sendEmail, isEmailConfigured, verifyEmailSetup, canSendEmail };

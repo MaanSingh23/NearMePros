@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, authRequest } from '../context/AuthContext';
+import api from '../utils/api';
 import OtpVerifyPanel from '../components/otp/OtpVerifyPanel';
 import { useLocation } from '../context/LocationContext';
 import { motion } from 'framer-motion';
@@ -38,6 +39,14 @@ function Register() {
 
   const sendCode = () => authRequest('/auth/otp/send', { email: formData.email, purpose: 'register', name: formData.name });
 
+  // Email verification is required whenever the server can send email
+  const [verificationRequired, setVerificationRequired] = useState(true);
+  useEffect(() => {
+    api.get('/auth/config', { silent: true })
+      .then(({ data }) => setVerificationRequired(data.emailVerificationRequired !== false))
+      .catch(() => {});
+  }, []);
+
   // Step 1: check the form, then email a verification code
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +66,8 @@ function Register() {
     setLoading(true);
     setError(null);
     try {
-      setVerification(await sendCode());
+      if (verificationRequired) setVerification(await sendCode());
+      else await createAccount();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -233,9 +243,13 @@ function Register() {
               {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
               <button type="submit" disabled={loading} className="btn-primary w-full text-center mt-8">
-                {loading ? 'Sending verification code...' : 'Continue - verify email'}
+                {loading
+                  ? (verificationRequired ? 'Sending verification code...' : 'Creating account...')
+                  : (verificationRequired ? 'Continue - verify email' : 'Create Account')}
               </button>
-              <p className="text-center text-xs font-semibold text-stone-400">We will email you a 6-digit code to confirm it is really you.</p>
+              {verificationRequired && (
+                <p className="text-center text-xs font-semibold text-stone-400">We will email you a 6-digit code to confirm it is really you.</p>
+              )}
 
               <div className="text-center mt-6">
                 <p className="text-sm font-medium text-stone-600 dark:text-stone-400">

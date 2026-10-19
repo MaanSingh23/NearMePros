@@ -4,6 +4,17 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const { sendOtp, verifyOtp, sendOtpError, maskEmail } = require('../utils/otp');
+const { canSendEmail } = require('../utils/mailer');
+
+// Sign-up requires an email code whenever the server can send email.
+// (If email isn't working, sign-up still works and the account is marked unverified.)
+const emailVerificationRequired = async () => process.env.OTP_DEV_MODE === 'true' || canSendEmail();
+
+// Tells the website which sign-in options are available right now
+router.get('/config', async (req, res) => {
+  const emailWorks = await emailVerificationRequired();
+  res.json({ emailVerificationRequired: emailWorks, emailLoginAvailable: emailWorks });
+});
 
 const JWT_SECRET = () => process.env.JWT_SECRET || 'your-secret-key';
 const PUBLIC_OTP_PURPOSES = ['register', 'login', 'reset-password'];
@@ -82,8 +93,7 @@ router.post('/register', [
   body('email').isEmail().withMessage('Enter a valid email address').normalizeEmail(),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').notEmpty().withMessage('Name is required').trim(),
-  body('phone').isMobilePhone().withMessage('Enter a valid phone number'),
-  body('otp').notEmpty().withMessage('Enter the verification code sent to your email')
+  body('phone').isMobilePhone().withMessage('Enter a valid phone number')
 ], async (req, res) => {
   if (validate(req, res)) return;
 
@@ -94,7 +104,11 @@ router.post('/register', [
       return res.status(400).json({ message: 'An account with this email already exists. Please log in instead.' });
     }
 
-    await verifyOtp({ email, purpose: 'register', code: otp });
+    const verificationRequired = await emailVerificationRequired();
+    if (verificationRequired) {
+      if (!otp) return res.status(400).json({ message: 'Enter the verification code sent to your email', otpRequired: true });
+      await verifyOtp({ email, purpose: 'register', code: otp });
+    }
 
     const user = new User({
       email,
@@ -103,7 +117,7 @@ router.post('/register', [
       phone,
       // Only customer or provider accounts can be created here
       role: role === 'provider' ? 'provider' : 'user',
-      emailVerified: true,
+      emailVerified: verificationRequired,
       location: location || {
         type: 'Point',
         coordinates: [75.8573, 30.9010], // Default Ludhiana coordinates
