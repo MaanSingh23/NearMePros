@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
 import LocationPicker from '../components/LocationPicker';
 import CallButton from '../components/CallButton';
+import { BOOKINGS_CHANGED } from '../utils/socket';
 
 const POLL_MS = 8000;
 
@@ -143,11 +144,17 @@ const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
     };
     refresh();
     const poll = setInterval(refresh, POLL_MS);
+    // Instant update when the professional responds (live alerts)
+    const onChange = (e) => {
+      if (!e.detail?.bookingId || String(e.detail.bookingId) === String(active.booking._id)) refresh();
+    };
+    window.addEventListener(BOOKINGS_CHANGED, onChange);
     const clock = setInterval(() => setTick((t) => t + 1), 1000);
     return () => {
       stopped = true;
       clearInterval(poll);
       clearInterval(clock);
+      window.removeEventListener(BOOKINGS_CHANGED, onChange);
     };
   }, [active.booking._id]); // eslint-disable-line react-hooks/exhaustive-deps
 

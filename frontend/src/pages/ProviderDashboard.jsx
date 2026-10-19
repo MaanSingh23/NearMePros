@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import CallButton from '../components/CallButton';
+import { BOOKINGS_CHANGED } from '../utils/socket';
 
 function ProviderDashboard() {
   const { user } = useAuth();
@@ -37,6 +38,13 @@ function ProviderDashboard() {
     fetchDashboardData();
     fetchProviderServices();
   }, []);
+
+  // Refresh instantly when a booking arrives or changes (live alerts)
+  useEffect(() => {
+    const refresh = () => fetchDashboardData();
+    window.addEventListener(BOOKINGS_CHANGED, refresh);
+    return () => window.removeEventListener(BOOKINGS_CHANGED, refresh);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDashboardData = async () => {
     try {

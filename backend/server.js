@@ -95,9 +95,18 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log('🟢 New client connected');
   
-  socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log(`User ${userId} joined room`);
+  // Clients join their own room with their login token, so nobody can
+  // listen to another user's booking alerts
+  socket.on('join', (payload) => {
+    try {
+      const token = typeof payload === 'object' ? payload?.token : null;
+      if (!token) return;
+      const { userId } = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      socket.join(String(userId));
+      socket.emit('joined', { ok: true });
+    } catch {
+      socket.emit('joined', { ok: false });
+    }
   });
 
   socket.on('disconnect', () => {

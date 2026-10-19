@@ -34,6 +34,7 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import GlobalAIAssistant from './components/GlobalAIAssistant';
+import LiveNotifications from './components/LiveNotifications';
 
 // NotFound Component
 const NotFound = () => (
@@ -107,6 +108,7 @@ const AppContent = () => {
 
       {!isAuthPage && <Footer />}
       <GlobalAIAssistant />
+      <LiveNotifications />
     </div>
   );
 };

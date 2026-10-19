@@ -66,12 +66,14 @@ const getIdString = (value) => {
     return value;
   }
 
-  if (typeof value.toString === 'function') {
-    return value.toString();
-  }
-
+  // Populated documents (e.g. booking.userId after .populate) - compare by their _id.
+  // This must come before toString(), which on a document returns the whole object.
   if (value._id && typeof value._id.toString === 'function') {
     return value._id.toString();
+  }
+
+  if (typeof value.toString === 'function') {
+    return value.toString();
   }
 
   return null;
