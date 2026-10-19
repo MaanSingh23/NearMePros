@@ -126,6 +126,19 @@ function Navbar() {
 
           <div className="hidden items-center gap-1 md:flex">
             {!shouldHideUserNav && (
+              <Link
+                to="/emergency"
+                className={`mr-1 inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-black transition ${location.pathname === '/emergency' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/70'}`}
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                </span>
+                <span className="hidden lg:inline">Emergency</span>
+                <span className="lg:hidden">SOS</span>
+              </Link>
+            )}
+            {!shouldHideUserNav && (
               <Link to="/services" className={linkClass('/services')}>
                 Find Services
               </Link>
@@ -298,6 +311,20 @@ function Navbar() {
                   Sign Up
                 </Link>
               </div>
+            )}
+
+            {!shouldHideUserNav && (
+              <Link
+                to="/emergency"
+                aria-label="Emergency Mode"
+                className="relative inline-flex h-10 items-center gap-1 rounded-full bg-red-600 px-3 text-xs font-black text-white shadow-lg shadow-red-600/30 md:hidden"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                </span>
+                SOS
+              </Link>
             )}
 
             <button

@@ -268,7 +268,13 @@ function ProviderDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60">
-                  {bookings.map((booking) => {
+                  {[...bookings]
+                    // Open emergency requests always on top
+                    .sort((a, b) => {
+                      const urgent = (bk) => (bk.isEmergency && ['pending', 'confirmed'].includes(bk.status) ? 1 : 0);
+                      return urgent(b) - urgent(a);
+                    })
+                    .map((booking) => {
                     const acceptKey = `${booking._id}-confirmed`;
                     const rejectKey = `${booking._id}-rejected`;
                     const completeKey = `${booking._id}-completed`;
@@ -276,7 +282,7 @@ function ProviderDashboard() {
                     const canComplete = booking.status === 'confirmed';
 
                     return (
-                      <tr key={booking._id} className="transition hover:bg-stone-50 md:hover:bg-transparent dark:hover:bg-stone-900/30">
+                      <tr key={booking._id} className={`transition hover:bg-stone-50 md:hover:bg-transparent dark:hover:bg-stone-900/30 ${booking.isEmergency && canRespond ? 'bg-red-50/70 dark:bg-red-950/20' : ''}`}>
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-4">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-stone-100 dark:bg-stone-800">
@@ -284,11 +290,20 @@ function ProviderDashboard() {
                             </div>
                             <div>
                               <p className="font-bold text-stone-900 dark:text-white">{booking.userId?.name}</p>
-                              <p className="text-xs font-medium text-stone-500">{booking.userId?.phone || booking.userId?.email}</p>
+                              {booking.isEmergency && booking.contactPhone ? (
+                                <a href={`tel:${booking.contactPhone}`} className="text-xs font-bold text-red-600 hover:underline dark:text-red-400">📞 {booking.contactPhone}</a>
+                              ) : (
+                                <p className="text-xs font-medium text-stone-500">{booking.userId?.phone || booking.userId?.email}</p>
+                              )}
                             </div>
                           </div>
                         </td>
                         <td className="px-8 py-5">
+                          {booking.isEmergency && (
+                            <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                              🚨 Emergency{booking.etaMinutes ? ` · ~${booking.etaMinutes} min away` : ''}
+                            </span>
+                          )}
                           <p className="font-bold text-stone-900 dark:text-white">{booking.serviceId?.name}</p>
                           <p className="text-xs font-medium text-stone-500 mt-0.5">{booking.serviceId?.category}</p>
                         </td>

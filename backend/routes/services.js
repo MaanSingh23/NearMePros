@@ -150,7 +150,7 @@ router.post('/', auth, uploadImages, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only providers can create services.' });
     }
 
-    const { name, category, description, price, priceType, availability } = req.body;
+    const { name, category, description, price, priceType, availability, emergencyAvailable } = req.body;
     
     // Get provider's location
     const provider = await User.findById(req.user.userId);
@@ -198,6 +198,7 @@ router.post('/', auth, uploadImages, async (req, res) => {
             coordinates: [75.8573, 30.9010],
             address: 'Ludhiana, Punjab, India'
           },
+      emergencyAvailable: emergencyAvailable === true || emergencyAvailable === 'true',
       isVerified: true // Set to true by default for immediate visibility
     });
 
@@ -224,7 +225,7 @@ router.put('/:id', auth, uploadImages, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { name, category, description, price, priceType, availability } = req.body;
+    const { name, category, description, price, priceType, availability, emergencyAvailable } = req.body;
     
     // Update fields
     if (name) service.name = name;
@@ -232,6 +233,9 @@ router.put('/:id', auth, uploadImages, async (req, res) => {
     if (description) service.description = description;
     if (price) service.price = parseFloat(price);
     if (priceType) service.priceType = priceType;
+    if (emergencyAvailable !== undefined) {
+      service.emergencyAvailable = emergencyAvailable === true || emergencyAvailable === 'true';
+    }
     
     // Parse availability if it's a string
     if (availability) {

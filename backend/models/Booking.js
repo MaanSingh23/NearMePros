@@ -55,6 +55,28 @@ const bookingSchema = new mongoose.Schema(
       enum: ['pending', 'confirmed', 'rejected', 'in-progress', 'completed', 'cancelled'],
       default: 'pending',
       index: true
+    },
+    // Emergency Mode requests: shown first and highlighted for the provider
+    isEmergency: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    emergencyType: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    contactPhone: {
+      type: String,
+      trim: true,
+      maxlength: 20,
+      default: null
+    },
+    // Estimated arrival (minutes) when the request was made
+    etaMinutes: {
+      type: Number,
+      default: null
     }
   },
   {

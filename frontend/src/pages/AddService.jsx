@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { validateImages } from '../utils/validateImages';
+import EmergencyToggle from '../components/EmergencyToggle';
 
 // Use the centralized api utility
 
@@ -35,7 +36,8 @@ function AddService() {
     category: 'Salon for Women',
     description: '',
     price: '',
-    priceType: 'hourly'
+    priceType: 'hourly',
+    emergencyAvailable: false
   });
 
   useEffect(() => {
@@ -267,6 +269,11 @@ function AddService() {
                    placeholder="Outline your expertise, toolset, and unique service offering..."
                  />
               </div>
+
+              <EmergencyToggle
+                checked={Boolean(formData.emergencyAvailable)}
+                onChange={(value) => setFormData({ ...formData, emergencyAvailable: value })}
+              />
 
               {/* Portfolio Deep Card */}
               <div className="rounded-[3rem] bg-stone-950 p-10 text-white shadow-2xl relative overflow-hidden">

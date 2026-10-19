@@ -254,6 +254,35 @@ const ServiceResultCard = ({ service, badges = [], onNavigate }) => {
   );
 };
 
+// Shown under replies to urgent messages: safety tip + shortcut to Emergency Mode
+const EmergencyCard = ({ emergency, onOpen }) => (
+  <div className="mt-2 w-full overflow-hidden rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40" style={{ minWidth: 'min(300px, 75vw)' }}>
+    <div className="p-3">
+      <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-300">
+        🚨 {emergency.lifeThreatening ? 'Danger - call for help first' : emergency.title || 'Looks urgent'}
+      </p>
+      {emergency.lifeThreatening ? (
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
+          {[['112', 'Emergency'], ['101', 'Fire'], ['108', 'Ambulance'], ['1906', 'Gas leak']].map(([number, label]) => (
+            <a key={number} href={`tel:${number}`} className="rounded-lg bg-white px-1 py-1.5 text-center dark:bg-stone-900">
+              <span className="block text-sm font-black text-red-700 dark:text-red-300">{number}</span>
+              <span className="block text-[9px] font-bold uppercase text-red-600/80">{label}</span>
+            </a>
+          ))}
+        </div>
+      ) : (
+        emergency.safety && <p className="mt-1 text-xs font-medium leading-relaxed text-red-800 dark:text-red-200">{emergency.safety}</p>
+      )}
+    </div>
+    <button
+      onClick={onOpen}
+      className="flex w-full items-center justify-center gap-1.5 bg-red-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-red-700"
+    >
+      Open Emergency Mode - nearest pro now →
+    </button>
+  </div>
+);
+
 const GlobalAIAssistant = () => {
   const navigate = useNavigate();
   const { location, isDefaultLocation, refreshLocation, loading: locationLoading } = useLocation();
@@ -423,6 +452,7 @@ const GlobalAIAssistant = () => {
         services: data.services || [],
         suggestions: data.suggestions || [],
         summary: data.summary,
+        emergency: data.emergency,
         speechLang: data.speechLang,
         time: Date.now()
       }]);
@@ -636,7 +666,7 @@ const GlobalAIAssistant = () => {
       setMessages(prev => [
         ...prev,
         { id: Date.now(), sender: 'user', text: transcript, time: Date.now() },
-        { id: Date.now() + 1, sender: 'ai', text: data.reply, services: data.services || [], suggestions: data.suggestions || [], summary: data.summary, speechLang: data.speechLang, time: Date.now() }
+        { id: Date.now() + 1, sender: 'ai', text: data.reply, services: data.services || [], suggestions: data.suggestions || [], summary: data.summary, speechLang: data.speechLang, emergency: data.emergency, time: Date.now() }
       ]);
       setCallStatus('Speaking');
       setCallText(spoken);
@@ -847,6 +877,21 @@ const GlobalAIAssistant = () => {
                     </p>
                   </div>
 
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate('/emergency');
+                    }}
+                    className="mb-5 flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 p-3.5 text-left text-white shadow-lg shadow-red-600/20 transition hover:shadow-xl"
+                  >
+                    <span className="text-2xl">🚨</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black">Urgent problem?</span>
+                      <span className="block text-xs font-medium text-red-50">Open Emergency Mode - nearest pro, fastest arrival</span>
+                    </span>
+                    <span className="text-lg font-black">→</span>
+                  </button>
+
                   <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.15em] text-stone-400">Popular services</p>
                   <div className="grid grid-cols-3 gap-2">
                     {quickCategories.map(cat => (
@@ -908,6 +953,16 @@ const GlobalAIAssistant = () => {
                             </button>
                           )}
                         </div>
+
+                        {msg.emergency && (
+                          <EmergencyCard
+                            emergency={msg.emergency}
+                            onOpen={() => {
+                              setIsOpen(false);
+                              navigate(`/emergency${msg.emergency.typeId ? `?type=${msg.emergency.typeId}` : ''}`);
+                            }}
+                          />
+                        )}
 
                         {msg.services?.length > 0 && (
                           <div className="w-full" style={{ minWidth: 'min(300px, 75vw)' }}>

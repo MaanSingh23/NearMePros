@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
+import Emergency from './pages/Emergency';
 import ServiceDetail from './pages/ServiceDetail';
 import Bookings from './pages/Bookings';
 import Profile from './pages/Profile';
@@ -75,6 +76,7 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/emergency" element={<Emergency />} />
           <Route path="/service/:id" element={<ServiceDetail />} />
           
           {/* Admin Routes */}

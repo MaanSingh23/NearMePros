@@ -19,6 +19,7 @@ import {
 import { StarIcon } from '@heroicons/react/24/solid';
 import toast from 'react-hot-toast';
 import { validateImages } from '../utils/validateImages';
+import EmergencyToggle from '../components/EmergencyToggle';
 
 // Use the centralized api utility
 
@@ -48,7 +49,8 @@ function EditService() {
         name: service.name,
         category: service.category,
         description: service.description,
-        price: service.price
+        price: service.price,
+        emergencyAvailable: Boolean(service.emergencyAvailable)
       });
       setExistingImages(service.images || []);
     } catch (error) {
@@ -224,6 +226,11 @@ function EditService() {
                    placeholder="Update your service description..."
                  />
               </div>
+
+              <EmergencyToggle
+                checked={Boolean(formData.emergencyAvailable)}
+                onChange={(value) => setFormData({ ...formData, emergencyAvailable: value })}
+              />
 
               <div className="rounded-[2.5rem] bg-stone-950 p-10 text-white shadow-2xl">
                  <div className="flex items-center justify-between mb-8">

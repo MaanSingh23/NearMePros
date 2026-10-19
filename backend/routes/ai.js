@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Service = require('../models/Service');
+const { detectEmergency } = require('../utils/emergencyTypes');
 
 // Gemini is used when GEMINI_API_KEY is set; otherwise (or if Gemini fails)
 // the rule-based engine below answers, so customers always get a reply.
@@ -425,7 +426,7 @@ RULES:
 6. A rating of "new" means no reviews yet - say "new" rather than 0.
 7. NEVER invent services, providers, prices, discounts, phone numbers, availability or time slots. If nothing in the list matches, say so honestly and suggest a related category or browsing all services.
 8. If the request is unclear, ask one short clarifying question.
-9. For emergencies (gas leak, fire, sparking wires, electric shock, flooding) first tell them to stay safe and call 112, then offer help.
+9. For emergencies (gas leak, fire, sparking wires, electric shock, flooding) first give one short safety step (life-threatening: call 112, fire 101, ambulance 108, LPG gas leak 1906), then tell them they can use Emergency Mode to reach the nearest professional fast.
 10. Politely decline topics unrelated to home/personal services or this platform.
 11. "suggestions": 2-3 short, useful next steps the customer might tap (max 4 words each, in the reply language), e.g. cheaper option, nearest, top rated, how to book.`;
 };
@@ -548,9 +549,21 @@ router.post('/chat', async (req, res) => {
   const language = detectLanguage(message, preference);
 
   // Language + result figures the chat window uses (voice, summary bar, badges)
+  // Urgent problems get a shortcut to Emergency Mode in the chat window
+  const urgent = detectEmergency(message);
+  const emergency = urgent
+    ? {
+        typeId: urgent.type?.id || null,
+        title: urgent.type?.title || null,
+        safety: urgent.type?.safety || null,
+        lifeThreatening: urgent.lifeThreatening
+      }
+    : null;
+
   const withMeta = (result, source) => ({
     ...result,
     source,
+    emergency,
     language,
     speechLang: LANGUAGES[language].speech,
     summary: summarize(result.services || [])

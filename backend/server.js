@@ -74,6 +74,7 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/verification', require('./routes/verification'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/emergency', require('./routes/emergency'));
 
 // Professional API Health Check / Home Route
 app.get('/', (req, res) => {
