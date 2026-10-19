@@ -201,6 +201,7 @@ router.post('/request', auth, async (req, res) => {
     }
 
     const populated = await Booking.findById(booking._id)
+      .select('+completionCode')
       .populate('serviceId', 'name category price priceType images')
       .populate('providerId', 'name phone avatar isVerified');
 

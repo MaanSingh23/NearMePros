@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { body, param, validationResult } = require('express-validator');
 const Booking = require('../models/Booking');
 const providerAuth = require('../middleware/providerAuth');
+const { checkCompletionCode, CompletionCodeError, sendCompletionCodeError } = require('../utils/completionCode');
 
 const router = express.Router();
 
@@ -102,6 +103,16 @@ router.patch('/bookings/:id/status', providerAuth, updateBookingStatusValidation
         success: false,
         message: `Cannot change booking status from ${booking.status} to ${status}`
       });
+    }
+
+    // Completing a job needs the customer's completion code
+    if (status === 'completed') {
+      try {
+        await checkCompletionCode(booking._id, req.body.completionCode);
+      } catch (error) {
+        if (error instanceof CompletionCodeError) return sendCompletionCodeError(res, error);
+        throw error;
+      }
     }
 
     booking.status = status;

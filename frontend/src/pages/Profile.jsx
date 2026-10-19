@@ -15,6 +15,9 @@ import axios from 'axios';
 import api, { getUploadsUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { authRequest } from '../context/AuthContext';
+import OtpModal from '../components/otp/OtpModal';
+import SecuritySettings from '../components/SecuritySettings';
 
 // Use the centralized api utility
 
@@ -56,33 +59,52 @@ function Profile() {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
+  const [phoneOtp, setPhoneOtp] = useState(null); // set when a phone change needs confirming
+
+  const saveProfile = async (otp) => {
+    const payload = new FormData();
+    payload.append('name', formData.name);
+    payload.append('phone', formData.phone);
+    payload.append('address', formData.address);
+    if (otp) payload.append('otp', otp);
+    if (avatarFile) payload.append('avatar', avatarFile);
 
     try {
-      const payload = new FormData();
-      payload.append('name', formData.name);
-      payload.append('phone', formData.phone);
-      payload.append('address', formData.address);
-
-      if (avatarFile) {
-        payload.append('avatar', avatarFile);
-      }
-
       const response = await api.put('/users/profile', payload, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        silent: true
       });
-
       updateUser(response.data.user);
       setIsEditing(false);
       setAvatarFile(null);
+      setPhoneOtp(null);
       toast.success('Profile updated successfully');
     } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error(error.response?.data?.message || 'Failed to update profile');
+      const data = error.response?.data || {};
+      const err = new Error(data.message || 'Failed to update profile');
+      Object.assign(err, data, { status: error.response?.status });
+      throw err;
+    }
+  };
+
+  const sendPhoneCode = () => authRequest('/users/me/otp', { purpose: 'change-phone' });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      await saveProfile();
+    } catch (error) {
+      if (error.otpRequired) {
+        // Changing the phone number must be confirmed with an email code
+        try {
+          setPhoneOtp(await sendPhoneCode());
+        } catch (sendError) {
+          toast.error(sendError.message);
+        }
+      } else {
+        toast.error(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -300,7 +322,20 @@ function Profile() {
             </div>
           </div>
         </motion.div>
+
+        <SecuritySettings />
       </div>
+
+      <OtpModal
+        open={Boolean(phoneOtp)}
+        onClose={() => setPhoneOtp(null)}
+        title="Confirm phone change"
+        maskedEmail={phoneOtp?.maskedEmail}
+        devCode={phoneOtp?.devCode}
+        onVerify={(code) => saveProfile(code)}
+        onResend={sendPhoneCode}
+        verifyLabel="Confirm & save"
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
 import LocationPicker from '../components/LocationPicker';
 import CallButton from '../components/CallButton';
+import { CompletionCodeBadge } from '../components/otp/CompletionCode';
 import { BOOKINGS_CHANGED } from '../utils/socket';
 
 const POLL_MS = 8000;
@@ -232,6 +233,12 @@ const ActiveRequest = ({ active, onClear, onChooseAnother }) => {
             </CallButton>
           )}
         </div>
+
+        {!ended && booking.completionCode && (
+          <div className="mt-3">
+            <CompletionCodeBadge code={booking.completionCode} status={status} />
+          </div>
+        )}
 
         {status === 'pending' && (
           <p className="mt-3 text-sm font-medium text-stone-500 dark:text-stone-400">

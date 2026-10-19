@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, authRequest } from '../context/AuthContext';
+import OtpVerifyPanel from '../components/otp/OtpVerifyPanel';
 import { useLocation } from '../context/LocationContext';
 import { motion } from 'framer-motion';
 import { 
@@ -12,7 +13,6 @@ import {
   BriefcaseIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import toast from 'react-hot-toast';
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -25,49 +25,62 @@ function Register() {
     address: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [verification, setVerification] = useState(null); // set once the code is emailed
   const { register } = useAuth();
   const { location: userLocation } = useLocation();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError(null);
   };
 
+  const sendCode = () => authRequest('/auth/otp/send', { email: formData.email, purpose: 'register', name: formData.name });
+
+  // Step 1: check the form, then email a verification code
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      setError('Passwords do not match');
       return;
     }
     if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (formData.phone.replace(/\D/g, '').length < 10) {
+      setError('Enter a valid 10-digit phone number');
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
-      const userData = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
-        role: formData.role,
-        location: userLocation ? {
-          type: 'Point',
-          coordinates: [userLocation.lng, userLocation.lat],
-          address: formData.address || 'Address not provided'
-        } : null
-      };
-
-      const success = await register(userData);
-      if (success) {
-        navigate('/');
-      }
-    } catch (error) {
-      toast.error('Registration failed. Please try again.');
+      setVerification(await sendCode());
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Step 2: create the account with the code from the email
+  const createAccount = async (otp) => {
+    const user = await register({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      phone: formData.phone,
+      role: formData.role,
+      otp,
+      location: userLocation ? {
+        type: 'Point',
+        coordinates: [userLocation.lng, userLocation.lat],
+        address: formData.address || userLocation.address || 'Address not provided'
+      } : null
+    });
+    navigate(user.role === 'provider' ? '/provider/dashboard' : '/');
   };
 
   return (
@@ -103,6 +116,19 @@ function Register() {
       <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 py-12 lg:flex-none lg:w-1/2 lg:px-20 xl:px-24 scrollbar-hide h-full">
         <div className="w-full max-w-sm mx-auto lg:w-96">
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
+            {verification ? (
+              <OtpVerifyPanel
+                title="Verify your email"
+                maskedEmail={verification.maskedEmail}
+                devCode={verification.devCode}
+                initialResendSeconds={verification.resendInSeconds || 60}
+                onVerify={createAccount}
+                onResend={sendCode}
+                verifyLabel="Verify & create account"
+                onBack={() => setVerification(null)}
+              />
+            ) : (
+            <>
             <div>
               <h2 className="text-4xl font-black tracking-tight">Create Account</h2>
               <p className="mt-2 text-stone-500 font-medium">Join Near Me Pros today to explore or offer services.</p>
@@ -164,7 +190,7 @@ function Register() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <PhoneIcon className="h-5 w-5 text-stone-400" />
                   </div>
-                  <input name="phone" type="tel" required value={formData.phone} onChange={handleChange} className="input-field pl-10" placeholder="+1 123 456 7890" />
+                  <input name="phone" type="tel" required value={formData.phone} onChange={handleChange} className="input-field pl-10" placeholder="98XXXXXXXX" />
                 </div>
               </div>
 
@@ -204,9 +230,12 @@ function Register() {
                 </div>
               </div>
 
+              {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+
               <button type="submit" disabled={loading} className="btn-primary w-full text-center mt-8">
-                {loading ? 'Setting up account...' : 'Create Account'}
+                {loading ? 'Sending verification code...' : 'Continue - verify email'}
               </button>
+              <p className="text-center text-xs font-semibold text-stone-400">We will email you a 6-digit code to confirm it is really you.</p>
 
               <div className="text-center mt-6">
                 <p className="text-sm font-medium text-stone-600 dark:text-stone-400">
@@ -218,6 +247,8 @@ function Register() {
               </div>
 
             </form>
+            </>
+            )}
           </motion.div>
         </div>
       </div>

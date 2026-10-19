@@ -5,6 +5,7 @@ const path = require('path');
 const { uploadToImageKit } = require('../utils/imageKit');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { sendOtp, verifyOtp, sendOtpError } = require('../utils/otp');
 
 // Configure multer for memory storage (for cloud uploads)
 const storage = multer.memoryStorage();
@@ -66,7 +67,20 @@ router.put('/profile', auth, upload.single('avatar'), async (req, res) => {
       user.name = name.trim();
     }
 
-    if (phone?.trim()) {
+    // Changing the phone number is a sensitive action - confirm with an email code
+    if (phone?.trim() && phone.trim() !== user.phone) {
+      if (!req.body.otp) {
+        return res.status(428).json({
+          message: 'Confirm the phone number change with the code sent to your email.',
+          otpRequired: true,
+          purpose: 'change-phone'
+        });
+      }
+      try {
+        await verifyOtp({ email: user.email, purpose: 'change-phone', code: req.body.otp });
+      } catch (error) {
+        return sendOtpError(res, error);
+      }
       user.phone = phone.trim();
     }
 
@@ -104,6 +118,69 @@ router.put('/profile', auth, upload.single('avatar'), async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Security settings (each change is confirmed with an email code)
+// ---------------------------------------------------------------------------
+const ACCOUNT_OTP_PURPOSES = ['change-password', 'toggle-2fa', 'change-phone'];
+
+// Send a code to the logged-in user's email
+router.post('/me/otp', auth, async (req, res) => {
+  try {
+    const { purpose } = req.body;
+    if (!ACCOUNT_OTP_PURPOSES.includes(purpose)) return res.status(400).json({ message: 'Invalid request' });
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const result = await sendOtp({ email: user.email, purpose, name: user.name });
+    res.json({ message: `We sent a 6-digit code to ${result.maskedEmail}`, ...result });
+  } catch (error) {
+    sendOtpError(res, error);
+  }
+});
+
+// Change password: current password + email code
+router.post('/me/password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, otp } = req.body;
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!(await user.comparePassword(currentPassword || ''))) {
+      return res.status(400).json({ message: 'Your current password is incorrect' });
+    }
+    if (await user.comparePassword(newPassword)) {
+      return res.status(400).json({ message: 'Choose a password different from your current one' });
+    }
+    await verifyOtp({ email: user.email, purpose: 'change-password', code: otp });
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    sendOtpError(res, error);
+  }
+});
+
+// Turn 2-step verification on or off
+router.post('/me/two-factor', auth, async (req, res) => {
+  try {
+    const { enabled, otp } = req.body;
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    await verifyOtp({ email: user.email, purpose: 'toggle-2fa', code: otp });
+    user.twoFactorEnabled = Boolean(enabled);
+    user.emailVerified = true;
+    await user.save();
+    res.json({
+      message: user.twoFactorEnabled ? '2-step verification is now ON' : '2-step verification is now OFF',
+      twoFactorEnabled: user.twoFactorEnabled
+    });
+  } catch (error) {
+    sendOtpError(res, error);
   }
 });
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, authRequest } from '../../context/AuthContext';
+import OtpVerifyPanel from '../../components/otp/OtpVerifyPanel';
 import { motion } from 'framer-motion';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -9,19 +10,27 @@ function AdminLogin() {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, verifyLoginOtp } = useAuth();
+  const [mfa, setMfa] = useState(null);
+
+  const afterLogin = (loggedInUser) => {
+    if (loggedInUser?.role === 'admin') {
+      navigate('/admin/dashboard');
+    } else if (loggedInUser) {
+      toast.error('Access denied. Admin only.');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      const loggedInUser = await login(credentials.email, credentials.password);
-      if (loggedInUser?.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (loggedInUser) {
-        toast.error('Access denied. Admin only.');
-      }
+      const result = await login(credentials.email, credentials.password);
+      if (result?.otpRequired) setMfa(result);
+      else afterLogin(result);
+    } catch (error) {
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -50,6 +59,17 @@ function AdminLogin() {
           </p>
         </div>
         
+        {mfa ? (
+          <OtpVerifyPanel
+            title="2-step verification"
+            maskedEmail={mfa.maskedEmail}
+            devCode={mfa.devCode}
+            onVerify={async (code) => afterLogin(await verifyLoginOtp(mfa.mfaToken, code))}
+            onResend={() => authRequest('/auth/login/resend', { mfaToken: mfa.mfaToken })}
+            verifyLabel="Verify & sign in"
+            onBack={() => setMfa(null)}
+          />
+        ) : (
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -93,6 +113,7 @@ function AdminLogin() {
             </button>
           </div>
         </form>
+        )}
       </motion.div>
     </div>
   );

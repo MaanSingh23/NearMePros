@@ -55,6 +55,17 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Email confirmed with an OTP at sign-up (or later)
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  // 2-step verification: password + email OTP at every login
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  passwordChangedAt: Date,
   verificationStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

@@ -5,6 +5,7 @@ const { body, param, validationResult } = require('express-validator');
 const Booking = require('../models/Booking');
 const Service = require('../models/Service');
 const auth = require('../middleware/auth');
+const { checkCompletionCode, CompletionCodeError, sendCompletionCodeError } = require('../utils/completionCode');
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'rejected', 'in-progress', 'completed', 'cancelled'];
 
@@ -234,9 +235,19 @@ router.post('/', auth, createBookingValidation, async (req, res) => {
 router.get('/my-bookings', auth, async (req, res) => {
   try {
     const bookings = await Booking.find({ userId: req.user.userId })
+      .select('+completionCode')
       .populate('serviceId', 'name category price images')
       .populate('providerId', 'name phone avatar')
       .sort('-createdAt');
+
+    // Older open bookings made before completion codes existed get one now
+    const crypto = require('crypto');
+    await Promise.all(bookings
+      .filter((b) => !b.completionCode && ['pending', 'confirmed', 'in-progress'].includes(b.status))
+      .map((b) => {
+        b.completionCode = String(crypto.randomInt(1000, 10000));
+        return Booking.updateOne({ _id: b._id }, { completionCode: b.completionCode });
+      }));
     
     res.json(bookings);
   } catch (error) {
@@ -282,6 +293,16 @@ router.put('/:id/status', auth, updateStatusValidation, async (req, res) => {
       return res.status(transitionCheck.statusCode || 400).json({ message: transitionCheck.message });
     }
 
+    // A professional completing a job needs the customer's completion code
+    if (status === 'completed' && getIdString(booking.providerId) === req.user.userId && booking.status !== 'completed') {
+      try {
+        await checkCompletionCode(booking._id, req.body.completionCode);
+      } catch (error) {
+        if (error instanceof CompletionCodeError) return sendCompletionCodeError(res, error);
+        throw error;
+      }
+    }
+
     booking.status = status;
     await booking.save();
 
@@ -319,6 +340,7 @@ router.get('/:id', auth, bookingIdValidation, async (req, res) => {
 
   try {
     const booking = await Booking.findById(req.params.id)
+      .select('+completionCode')
       .populate('userId', 'name email phone avatar')
       .populate('serviceId', 'name category price description images')
       .populate('providerId', 'name email phone avatar isVerified');
@@ -339,7 +361,16 @@ router.get('/:id', auth, bookingIdValidation, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    res.json(booking);
+    // Only the customer may see the completion code
+    const result = booking.toObject();
+    if (bookingUserId !== req.user.userId) {
+      delete result.completionCode;
+    } else if (!result.completionCode && ['pending', 'confirmed', 'in-progress'].includes(result.status)) {
+      // Older bookings made before completion codes existed get one now
+      result.completionCode = String(require('crypto').randomInt(1000, 10000));
+      await Booking.updateOne({ _id: booking._id }, { completionCode: result.completionCode });
+    }
+    res.json(result);
   } catch (error) {
     return respondServerError(res, error, 'Server error while fetching booking');
   }

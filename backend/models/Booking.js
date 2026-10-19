@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -77,12 +78,35 @@ const bookingSchema = new mongoose.Schema(
     etaMinutes: {
       type: Number,
       default: null
-    }
+    },
+    // Job completion code: only the customer can see it; the professional must
+    // enter it to mark the job done (proves the customer confirmed the work)
+    completionCode: {
+      type: String,
+      select: false
+    },
+    completionAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+    completionLockedUntil: {
+      type: Date,
+      select: false
+    },
+    completedVerifiedAt: Date
   },
   {
     timestamps: true
   }
 );
+
+bookingSchema.pre('validate', function setCompletionCode(next) {
+  if (this.isNew && !this.completionCode) {
+    this.completionCode = String(crypto.randomInt(1000, 10000));
+  }
+  next();
+});
 
 bookingSchema.index({ providerId: 1, createdAt: -1 });
 bookingSchema.index({ userId: 1, createdAt: -1 });

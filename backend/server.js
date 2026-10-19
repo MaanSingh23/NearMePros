@@ -15,7 +15,7 @@ const server = http.createServer(app);
 app.get('/health', (req, res) => res.status(200).send('API IS ALIVE'));
 
 // Shows which settings are present (true/false only, never the values)
-app.get('/health/config', (req, res) => {
+app.get('/health/config', async (req, res) => {
   const isSet = (name) => Boolean(process.env[name] && process.env[name].trim());
   res.json({
     mongo: isSet('MONGO_URI') || isSet('MONGODB_URI'),
@@ -24,7 +24,10 @@ app.get('/health/config', (req, res) => {
     imagekitPrivateKey: isSet('IMAGEKIT_PRIVATE_KEY'),
     imagekitUrlEndpoint: isSet('IMAGEKIT_URL_ENDPOINT') ? 'set' : 'using default',
     gemini: isSet('GEMINI_API_KEY'),
-    geminiStatus: require('./routes/ai').geminiStatus
+    geminiStatus: require('./routes/ai').geminiStatus,
+    // Can the server send OTP emails? (provider + whether it signs in)
+    email: await require('./utils/mailer').verifyEmailSetup(),
+    otpTestMode: process.env.OTP_DEV_MODE === 'true'
   });
 });
 

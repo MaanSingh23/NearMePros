@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import CallButton from '../components/CallButton';
 import { BOOKINGS_CHANGED } from '../utils/socket';
+import { CompleteJobModal } from '../components/otp/CompletionCode';
 
 function ProviderDashboard() {
   const { user } = useAuth();
@@ -103,6 +104,19 @@ function ProviderDashboard() {
     }
   };
 
+  const [completeTarget, setCompleteTarget] = useState(null);
+
+  // Completing needs the customer's 4-digit completion code
+  const completeWithCode = async (completionCode) => {
+    try {
+      await api.patch(`/provider/bookings/${completeTarget._id}/status`, { status: 'completed', completionCode }, { silent: true });
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Could not complete the job');
+    }
+    toast.success('Job completed and verified ✓');
+    await fetchDashboardData();
+  };
+
   const handleBookingStatusUpdate = async (bookingId, status) => {
     setActionLoading(`${bookingId}-${status}`);
     try {
@@ -134,6 +148,7 @@ function ProviderDashboard() {
 
   return (
     <div className="min-h-screen bg-stone-50 py-10 dark:bg-[#0c0a09]">
+      <CompleteJobModal open={Boolean(completeTarget)} booking={completeTarget} onClose={() => setCompleteTarget(null)} onSubmit={completeWithCode} />
       <div className="section-shell">
         {/* Header */}
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -345,7 +360,7 @@ function ProviderDashboard() {
                                 </button>
                               </>
                             ) : canComplete ? (
-                              <button onClick={() => handleBookingStatusUpdate(booking._id, 'completed')} disabled={actionLoading === completeKey} className="btn-primary py-2 px-4 text-xs shrink-0">
+                              <button onClick={() => setCompleteTarget(booking)} disabled={actionLoading === completeKey} className="btn-primary py-2 px-4 text-xs shrink-0">
                                 {actionLoading === completeKey ? 'Completing...' : 'Mark Done'}
                               </button>
                             ) : (

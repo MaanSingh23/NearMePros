@@ -9,6 +9,7 @@ import EditService from './pages/EditService';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
 import Emergency from './pages/Emergency';
@@ -76,6 +77,7 @@ const AppContent = () => {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/services" element={<Services />} />
           <Route path="/emergency" element={<Emergency />} />
           <Route path="/service/:id" element={<ServiceDetail />} />

@@ -13,6 +13,7 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { CompletionCodeBadge, CompleteJobModal } from '../components/otp/CompletionCode';
 
 function Bookings() {
   const { id } = useParams();
@@ -21,6 +22,19 @@ function Bookings() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [completeTarget, setCompleteTarget] = useState(null);
+
+  // Provider completes a job with the customer's completion code
+  const completeWithCode = async (completionCode) => {
+    try {
+      await api.put(`/bookings/${completeTarget._id}/status`, { status: 'completed', completionCode }, { silent: true });
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Could not complete the job');
+    }
+    toast.success('Job completed and verified ✓');
+    if (id) fetchBookingDetails();
+    else fetchBookings();
+  };
 
   useEffect(() => {
     if (id) {
@@ -107,10 +121,20 @@ function Bookings() {
     ? bookings 
     : bookings.filter(b => b.status === filter);
 
+  const completeModal = (
+    <CompleteJobModal
+      open={Boolean(completeTarget)}
+      booking={completeTarget}
+      onClose={() => setCompleteTarget(null)}
+      onSubmit={completeWithCode}
+    />
+  );
+
   // If viewing single booking
   if (id && selectedBooking) {
     return (
       <div className="min-h-screen bg-stone-50 dark:bg-[#0c0a09] py-8 text-stone-900 dark:text-stone-100">
+        {completeModal}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link to="/bookings" className="text-primary-600 hover:text-primary-700 dark:text-primary-500 dark:hover:text-primary-400 mb-6 inline-block font-bold">
             ← Back to Bookings
@@ -227,6 +251,12 @@ function Bookings() {
                   )}
                 </div>
 
+                {user?.role === 'user' && (
+                  <div className="md:col-span-2">
+                    <CompletionCodeBadge code={selectedBooking.completionCode} status={selectedBooking.status} />
+                  </div>
+                )}
+
                 {/* Actions */}
                 {user?.role === 'provider' && selectedBooking.status === 'pending' && (
                   <div className="md:col-span-2 flex space-x-4 mt-6">
@@ -248,7 +278,7 @@ function Bookings() {
                 {user?.role === 'provider' && selectedBooking.status === 'confirmed' && (
                   <div className="md:col-span-2 mt-6">
                     <button
-                      onClick={() => updateBookingStatus(selectedBooking._id, 'completed')}
+                      onClick={() => setCompleteTarget(selectedBooking)}
                       className="w-full rounded-[1.5rem] bg-primary-600 text-white py-4 font-black transition hover:bg-primary-500"
                     >
                       Mark service completed
@@ -288,6 +318,7 @@ function Bookings() {
   // List view
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-[#0c0a09] py-8 text-stone-900 dark:text-stone-100">
+      {completeModal}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-10 text-center md:text-left">
           <h1 className="text-4xl font-black text-stone-950 dark:text-white tracking-tight">My Bookings</h1>
@@ -360,6 +391,11 @@ function Bookings() {
                             {booking.time}
                           </span>
                         </div>
+                        {user?.role === 'user' && (
+                          <div className="mt-3 max-w-sm">
+                            <CompletionCodeBadge compact code={booking.completionCode} status={booking.status} />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -381,7 +417,7 @@ function Bookings() {
                         </Link>
                         {user?.role === 'provider' && booking.status === 'confirmed' && (
                           <button
-                            onClick={() => updateBookingStatus(booking._id, 'completed')}
+                            onClick={() => setCompleteTarget(booking)}
                             className="rounded-full bg-stone-900 dark:bg-stone-100 px-5 py-2.5 text-sm font-bold text-white dark:text-stone-900 transition hover:scale-105"
                           >
                             Complete
