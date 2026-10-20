@@ -10,6 +10,9 @@ const { canSendEmail } = require('../utils/mailer');
 // (If email isn't working, sign-up still works and the account is marked unverified.)
 const emailVerificationRequired = async () => process.env.OTP_DEV_MODE === 'true' || canSendEmail();
 
+// Check email once at startup so the first visitor doesn't wait for it
+canSendEmail().catch(() => {});
+
 // Tells the website which sign-in options are available right now
 router.get('/config', async (req, res) => {
   const emailWorks = await emailVerificationRequired();

@@ -66,8 +66,18 @@ function Register() {
     setLoading(true);
     setError(null);
     try {
-      if (verificationRequired) setVerification(await sendCode());
-      else await createAccount();
+      if (!verificationRequired) {
+        await createAccount();
+      } else {
+        try {
+          setVerification(await sendCode());
+        } catch (sendError) {
+          // Email isn't working on the server: create the account directly
+          // (the server still decides whether a code is required)
+          if (sendError.status === 503) await createAccount();
+          else throw sendError;
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
