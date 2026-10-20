@@ -1,9 +1,12 @@
 const nodemailer = require('nodemailer');
 
 /**
- * Sends email through whichever provider is configured:
- * - BREVO_API_KEY      -> Brevo HTTPS API (works on hosts that block SMTP ports)
- * - EMAIL_HOST/...     -> SMTP, e.g. Gmail with an App Password
+ * Sends email through whichever provider is configured (first match wins):
+ * - BREVO_API_KEY                          -> Brevo HTTPS API
+ * - EMAIL_RELAY_URL + EMAIL_RELAY_SECRET   -> our Vercel function (frontend/api/send-email.js),
+ *                                             which sends via Gmail; used because Render's
+ *                                             free plan blocks outgoing SMTP
+ * - EMAIL_HOST/...                         -> SMTP directly, e.g. Gmail with an App Password
  * EMAIL_FROM sets the sender address (defaults to EMAIL_USERNAME).
  */
 const FROM_NAME = 'Near Me Pros';
@@ -25,8 +28,22 @@ const getTransporter = () => {
 
 const fromAddress = () => process.env.EMAIL_FROM || process.env.EMAIL_USERNAME;
 
+const useRelay = () => Boolean(process.env.EMAIL_RELAY_URL && process.env.EMAIL_RELAY_SECRET);
+
 const isEmailConfigured = () =>
-  Boolean(process.env.BREVO_API_KEY || (process.env.EMAIL_HOST && process.env.EMAIL_USERNAME && process.env.EMAIL_PASSWORD));
+  Boolean(process.env.BREVO_API_KEY || useRelay() || (process.env.EMAIL_HOST && process.env.EMAIL_USERNAME && process.env.EMAIL_PASSWORD));
+
+const relayRequest = async (method, body) => {
+  const response = await fetch(process.env.EMAIL_RELAY_URL, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-relay-secret': process.env.EMAIL_RELAY_SECRET },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(15000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) throw new Error(`Email relay ${response.status}: ${data.message || 'failed'}`);
+  return data;
+};
 
 const sendViaBrevo = async ({ to, subject, html, text }) => {
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -46,6 +63,7 @@ const sendViaBrevo = async ({ to, subject, html, text }) => {
 
 const sendEmail = async ({ to, subject, html, text }) => {
   if (process.env.BREVO_API_KEY) return sendViaBrevo({ to, subject, html, text });
+  if (useRelay()) return relayRequest('POST', { to, subject, html, text });
   if (!isEmailConfigured()) throw new Error('Email is not configured');
   await getTransporter().sendMail({ from: `"${FROM_NAME}" <${fromAddress()}>`, to, subject, html, text });
 };
@@ -53,6 +71,14 @@ const sendEmail = async ({ to, subject, html, text }) => {
 /** Checks the configured provider can sign in (used by /health/config). */
 const verifyEmailSetup = async () => {
   if (process.env.BREVO_API_KEY) return { provider: 'brevo', ok: true };
+  if (useRelay()) {
+    try {
+      await relayRequest('GET');
+      return { provider: 'vercel-relay', ok: true };
+    } catch (error) {
+      return { provider: 'vercel-relay', ok: false, error: error.message.slice(0, 120) };
+    }
+  }
   if (!isEmailConfigured()) return { provider: null, ok: false, error: 'not configured' };
   try {
     await getTransporter().verify();
